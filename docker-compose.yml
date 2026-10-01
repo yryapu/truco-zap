@@ -23,7 +23,7 @@ services:
 
   e2e:
     profiles: ["teste"]
-    image: mcr.microsoft.com/playwright:v1.56.0-noble
+    image: mcr.microsoft.com/playwright:v1.49.1-noble
     working_dir: /e2e
     volumes: ["./e2e:/e2e"]
     environment:

@@ -1,5 +1,5 @@
 {
   "name": "truco-zap-e2e",
   "private": true,
-  "devDependencies": { "@playwright/test": "1.56.0" }
+  "devDependencies": { "@playwright/test": "1.49.1" }
 }
