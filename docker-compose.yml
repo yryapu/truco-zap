@@ -3,7 +3,8 @@
 services:
   app:
     build: .
-    ports: ["8080:8080"]
+    # Porta do host configurável: 8080 colide com frequência. `TRUCO_PORTA=9090 docker compose up`
+    ports: ["${TRUCO_PORTA:-18080}:8080"]
     volumes: ["dados:/dados"]
     environment:
       # Só para a pilha local de desenvolvimento/teste: libera webhook em http e para
@@ -27,7 +28,7 @@ services:
     working_dir: /e2e
     volumes: ["./e2e:/e2e"]
     environment:
-      BASE_URL: http://app:8080
+      BASE_URL: http://app:8080 # dentro da rede do Compose, sempre 8080
       RECEPTOR_PORTA: "9099"
       RECEPTOR_HOST: e2e
       CI: "1"
