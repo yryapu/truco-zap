@@ -399,6 +399,12 @@ impl Match {
         if proposto >= 12 {
             return Err(Erro::ValorMaximoAtingido); // R9: no 12 só aceita ou corre
         }
+        // Checa ANTES de mexer no estado. Hoje isto é inalcançável (proposto < 12 implica que
+        // ainda há degrau), mas um `?` depois de mutar deixaria a mão num valor subido sem
+        // pedido pendente — o tipo de bug que só aparece quando a escada muda.
+        if self.mao.degrau + 2 >= ESCADA.len() {
+            return Err(Erro::ValorMaximoAtingido);
+        }
         // Aumentar = aceitar o degrau proposto e propor o seguinte.
         self.mao.degrau += 1;
         self.mao.valor = ESCADA[self.mao.degrau];
