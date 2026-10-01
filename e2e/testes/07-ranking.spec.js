@@ -22,12 +22,30 @@ test('ganhar uma partida sobe o jogador no ranking e troca o emblema de trilha',
   await expect(vencedor.getByTestId('emblemas').locator('[data-chave="pe_de_meia"]')).toBeVisible();
   await expect(vencedor.getByTestId('emblemas').locator('[data-chave="estreante"]')).toHaveCount(0);
 
-  // E aparece no ranking com 1 vitória.
-  const rk = vencedor.getByTestId('ranking');
-  await expect(rk).toContainText('1V / 0D');
-  for (const a of apelidos) await expect(rk).toContainText(a);
+  // E se acha na classificação, com 1 vitória — mesmo que o topo já esteja cheio de outros.
+  // Procurar o apelido no top da lista era o teste errado: com o banco cheio o jogador novo
+  // simplesmente não está lá, e isso é um problema do produto, não do teste (ERROS.md E16).
+  await expect(vencedor.getByTestId('ranking')).toContainText('1V / 0D');
+  const minha = vencedor.getByTestId('minha-posicao');
+  await expect(minha).toContainText('(você)');
+  await expect(minha).toContainText('1V / 0D');
+  const meuApelido = await vencedor.getByTestId('perfil-apelido').textContent();
+  await expect(minha).toContainText(meuApelido);
+  expect(apelidos).toContain(meuApelido);
 
   // Histórico do vencedor mostra a partida terminada.
   await expect(vencedor.getByTestId('historico')).toContainText('1x1');
   for (const c of ctxs) await c.close();
+});
+
+test('a sua linha aparece na classificação mesmo com o topo cheio de outros', async ({ page }) => {
+  await entrarComoConvidado(page);
+  const apelido = await page.getByTestId('perfil-apelido').textContent();
+  const minha = page.getByTestId('minha-posicao');
+  await expect(minha).toContainText(apelido);
+  await expect(minha).toContainText('(você)');
+  await expect(minha).toContainText('0V / 0D');
+  // A posição é um número de verdade, não um placeholder.
+  const pos = await minha.locator('.pos').textContent();
+  expect(Number(pos), `posição lida: ${pos}`).toBeGreaterThan(0);
 });

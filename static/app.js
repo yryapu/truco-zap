@@ -109,7 +109,7 @@ function linha(celulas, classe) {
 async function carregarLobby() {
   mostrar('tela-lobby');
   try {
-    const { ranking } = await api('/api/ranking');
+    const { ranking, eu } = await api('/api/ranking');
     const t = $('ranking');
     t.textContent = '';
     for (const l of ranking) {
@@ -127,6 +127,19 @@ async function carregarLobby() {
     }
     if (!ranking.length) {
       t.appendChild(linha([{ texto: 'Ninguém pontuou ainda. Ganhe uma e assuma o topo.' }], 'vazio'));
+    }
+    // A sua linha, sempre — inclusive quando você está longe do topo.
+    const meu = $('minha-posicao');
+    meu.textContent = '';
+    if (eu) {
+      meu.appendChild(
+        linha([
+          { texto: eu.posicao, classe: 'pos' },
+          `${eu.apelido} (você)`,
+          { texto: `${eu.vitorias}V / ${eu.derrotas}D`, classe: 'num' },
+          { texto: `${eu.saldo}`, classe: 'num moedas-col' },
+        ])
+      );
     }
   } catch (_) {}
 

@@ -302,6 +302,10 @@ h2 {
 .placar-geral .num { text-align: right; font-variant-numeric: tabular-nums; color: var(--giz-fosco); }
 .placar-geral .moedas-col { color: var(--lampada); opacity: .85; width: 4.5rem; }
 .placar-geral .eu-mesmo td { color: var(--lampada); }
+/* A sua linha fica fixa no pé da lousa: o ranking mostra os 25 primeiros, e você precisa se
+   achar mesmo estando em 300º. */
+.eu-fixo { border-top: 1px dashed var(--giz-tenue); margin-top: .5rem; }
+.eu-fixo td { color: var(--lampada); font-weight: 600; border-bottom: 0; }
 .placar-geral .vazio td { color: var(--giz-tenue); font-style: italic; }
 .ganhou { color: #8fd49a; }
 .perdeu { color: #e49a92; }

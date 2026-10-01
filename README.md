@@ -7,6 +7,32 @@ real por WebSocket onde **a carta é o próprio caractere Unicode**:
 🂡  🂱  🃁  🃑
 ```
 
+![A tela de entrada: as quatro manilhas em leque, cada uma com seu apelido — pica-fumo,
+espadilha, copeta e zap](docs/imagens/entrada.png)
+
+A mesa, no meio de uma mão. A rodada que acabou continua visível com as duas cartas, quem
+jogou cada uma, a perdedora apagada e a vencedora marcada; o placar são doze sementes de
+olho-de-cabra por dupla, que é como a fonte citada descreve a contagem de tentos.
+
+![A mesa de jogo](docs/imagens/mesa.png)
+
+<details>
+<summary>Mais telas: lobby e celular</summary>
+
+O lobby. Superfície de papel é onde você age; lousa de giz é o que você só lê.
+
+![O lobby](docs/imagens/lobby.png)
+
+No celular, a mesma mesa:
+
+![A mesa no celular](docs/imagens/mesa-celular.png)
+
+E a entrada:
+
+![A entrada no celular](docs/imagens/entrada-celular.png)
+
+</details>
+
 Pesquisa, fontes das regras, decisões de desenho e erros:
 **https://github.com/yryapu/poliorketikos-truco-zap**
 
@@ -67,6 +93,8 @@ Três coisas que a mesa precisa deixar óbvio, e deixa:
 - **A rodada que acabou continua na mesa**, com as duas cartas, quem jogou cada uma, a perdedora
   apagada e a vencedora marcada com *levou*. Sem isso você nunca vê a carta do adversário ao lado
   da sua — a mesa esvaziava no instante em que a rodada resolvia.
+- **Você se acha na classificação**, mesmo em 300º: além dos 25 primeiros, a sua linha vem
+  sempre, com a posição calculada sobre a tabela inteira.
 - **Anel dourado significa uma coisa só: manilha.** Quem levou a rodada se distingue por
   continuar aceso enquanto o resto apaga, não por outro anel igual.
 - **O placar é físico.** Doze sementes enchendo é mais rápido de ler que um número, e a mão de
@@ -152,9 +180,9 @@ fixando o endereço validado na conexão para fechar DNS rebinding).
 
 | o que | comando | resultado |
 |---|---|---|
-| regras do truco paulista | `cargo test -p truco_core` | **37 passed, 0 failed** — inclui a tabela exaustiva de 15 empates de pagat.com e fuzz de 2000 partidas completas |
+| regras do truco paulista | `cargo test -p truco_core` | **39 passed, 0 failed** — inclui a tabela exaustiva de 15 empates de pagat.com e fuzz de 2000 partidas completas |
 | servidor (emblemas, webhook, SSRF) | `cargo test -p truco_server` | **9 passed, 0 failed** |
-| front e WebSocket | `docker compose --profile teste run --rm e2e` | **18 passed (3,9 min), zero intermitentes** |
+| front e WebSocket | `docker compose --profile teste run --rm e2e` | **22 passed (5,5 min), zero intermitentes** |
 | API HTTP do terminal | `./scripts/fumaca.sh http://localhost:18080` | **13 ok, 0 falhou** |
 | CI | GitHub Actions `testes` | `cargo test` + `clippy -D warnings` + `cargo fmt --check` ✅ |
 
@@ -174,3 +202,6 @@ maquiagem. Os três que eu destacaria:
 - **Nenhum limite de taxa.** Criar convidados em massa é barato e cada um nasce com 1000 moedas;
   como o saldo não vale nada fora do jogo o impacto é poluir o ranking, não fraude — mas o
   ranking é trivialmente poluível.
+- **Não há teste de regressão visual.** Os 22 testes de interface conferem comportamento e
+  estrutura, não aparência: uma cor errada passaria. As imagens acima vêm de `e2e/olhar.mjs`,
+  que é inspeção manual, não asserção.

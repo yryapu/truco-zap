@@ -7,8 +7,8 @@
   "commit_final": "fc56ae64c4ae32939af2db0611138119bfa713bd",
   "como_rodar": [
     "docker compose up -d --build   # sobe tudo; abra http://localhost:18080 (TRUCO_PORTA=9090 muda a porta do host)",
-    "cargo test   # 46 testes: 37 de regra do truco paulista contra as fontes citadas + 9 de emblemas/webhook",
-    "docker compose --profile teste run --rm e2e   # 18 testes Playwright de front e WebSocket, dentro do Docker",
+    "cargo test   # 48 testes: 39 de regra do truco paulista contra as fontes citadas + 9 de emblemas/webhook",
+    "docker compose --profile teste run --rm e2e   # 22 testes Playwright de front e WebSocket, dentro do Docker",
     "./scripts/fumaca.sh http://localhost:18080   # 13 checagens da API HTTP do terminal"
   ],
   "criterios": [
@@ -34,7 +34,7 @@
       "id": "C4",
       "texto": "Ranking, e emblemas de reputacao por vitorias e por historico",
       "atendido": true,
-      "prova": "e2e 07-ranking.spec.js: ganhar uma partida troca o emblema de trilha de 'estreante' para 'pe_de_meia', faz o emblema antigo desaparecer, e o jogador aparece no ranking com '1V / 0D' e no proprio historico. cargo test -p truco_server emblemas: 4 testes (todo jogador tem exatamente um emblema de trilha; 'invicto' exige 5 vitorias e zero derrotas; trilhas de vitoria e de historico sao independentes; 'quebrado' so aparece depois de jogar)."
+      "prova": "e2e 07-ranking.spec.js: ganhar uma partida troca o emblema de trilha de 'estreante' para 'pe_de_meia', faz o emblema antigo desaparecer, e o jogador aparece no ranking com '1V / 0D' e no proprio historico; e 'a sua linha aparece na classificacao mesmo com o topo cheio de outros' confere que o jogador se encontra na classificacao com posicao real mesmo fora dos 25 primeiros. cargo test -p truco_server emblemas: 4 testes (todo jogador tem exatamente um emblema de trilha; 'invicto' exige 5 vitorias e zero derrotas; trilhas de vitoria e de historico sao independentes; 'quebrado' so aparece depois de jogar)."
     },
     {
       "id": "C5",
@@ -71,6 +71,12 @@
       "texto": "Roda e e testado localmente, em Docker, de forma segura",
       "atendido": true,
       "prova": "docker compose up -d -> 'app Up (healthy)' com healthcheck em /api/saude. Imagem final sem toolchain Rust nem codigo-fonte, rodando como uid 10001 (nao-root), com cap_drop: ALL e no-new-privileges. A suite Playwright roda DENTRO do Docker (perfil 'teste'), em outro container na mesma rede — escolha forcada e aproveitada: o node do host esta quebrado (libllhttp.9.3.dylib faltando), e rodar no container torna a prova reproduzivel para o avaliador."
+    },
+    {
+      "id": "C11",
+      "texto": "A mesa e acompanhavel: da para ver a carta do adversario ao lado da sua e quem ganhou de quem",
+      "atendido": true,
+      "prova": "docker compose --profile teste run --rm e2e -> 08-mesa-legivel.spec.js, 3 testes verdes: 'a rodada que acabou fica na mesa, com as duas cartas e a vencedora marcada' confere que o bloco da rodada resolvida tem as DUAS cartas, que da para ler de quem e cada uma, e que exatamente uma esta marcada como 'levou' quando nao houve empate; 'o placar e 12 sementes por lado e enche conforme os pontos' confere 12+12 sementes e que correr do truco acende exatamente uma; 'as telas nao se sobrepoem' confere que o atributo hidden ganha de qualquer display declarado. No motor: cargo test a_rodada_resolvida_fica_visivel_com_o_vencedor_marcado e carta_encoberta_continua_secreta_depois_da_rodada_resolver."
     }
   ],
   "decisoes": [
@@ -143,6 +149,21 @@
       "o_que": "um unico subagente, adversarial, sobre o motor de regras, sem permissao de editar",
       "porque": "o risco dominante esta declarado no proprio enunciado: 'regra de jogo errada invalida o resto'. O ganho de paralelizar ESCRITA num projeto deste tamanho e pequeno (o gargalo e decisao, nao digitacao) e o custo e alto (duas nocoes do mesmo tipo). Um leitor independente do motor ataca o risco dominante sem tocar no codigo",
       "alternativa_descartada": "fan-out de 4-5 agentes (motor/HTTP/front/testes/infra) — descartado porque o contrato entre essas partes ainda nao existia, e paralelizar antes do contrato gera integracao e nao velocidade; e nao usar nenhum, que deixaria a parte mais critica sem revisao independente"
+    },
+    {
+      "o_que": "direcao visual do front: boteco, nao cassino; placar em 12 sementes de olho-de-cabra",
+      "porque": "feltro verde e cassino (poquer, blackjack); truco paulista e jogado em mesa de bar. A primeira versao tinha pego o default de 'jogo de cartas' em vez de olhar o assunto. A paleta sai de um objeto concreto — mesa de boteco sob lampada incandescente — e o placar em sementes e a forma TRADICIONAL de contar tentos, citada na propria F1: 'It is traditional to score using ormosia seeds (tentos)'. Ler 12 sementes enchendo e mais rapido que ler um numero",
+      "alternativa_descartada": "feltro verde (assunto errado); desenhar a carta em CSS em vez de usar o glifo (ficaria mais bonito e controlavel, descartado por coerencia: o code point e a carta do protocolo ate o pixel — primeira coisa a reabrir se a legibilidade das figuras incomodar); toalha xadrez em vermelho vivo (gritava mais alto que as cartas)"
+    },
+    {
+      "o_que": "a rodada resolvida fica no estado do servidor (RodadaResolvida), nao e remontada no cliente",
+      "porque": "sem isso as cartas saem da mesa no instante em que a rodada resolve e o jogador nunca ve a carta do adversario ao lado da sua. Guardar no servidor mantem o cliente burro e sobrevive a reconexao: quem reconecta no meio da mao recebe a rodada anterior junto com o estado",
+      "alternativa_descartada": "acumular os eventos carta_jogada no cliente e so limpar depois de um atraso. Descartado porque quebra na reconexao e porque poe no cliente uma nocao de 'o que acabou de acontecer' que o servidor ja tem"
+    },
+    {
+      "o_que": "/api/ranking devolve tambem a linha de quem pediu, com a posicao real calculada sobre a tabela inteira",
+      "porque": "um ranking em que voce nao se encontra nao e um ranking, e uma lista de outras pessoas. Com o banco vazio isso nunca aparece — e com o banco vazio e como eu testei a vida inteira. Bastou ter algumas centenas de jogadores empatados para o jogador novo sumir do top 50",
+      "alternativa_descartada": "aumentar o limite do top (so empurra o problema) ou paginar a classificacao (compra uma capacidade que ninguem pediu e ainda assim exige procurar). A posicao propria vem de um ROW_NUMBER() numa subconsulta, calculado sobre todos os jogadores"
     }
   ],
   "previsoes": [
@@ -211,15 +232,17 @@
     "O robo e ruim de proposito e nao e balanceado: ele quase sempre joga a menor carta que ganha, o que o torna previsivel. Quem joga contra robo nao esta sendo testado como jogador.",
     "Reconexao religa o assento, mas o cliente nao tem reconexao automatica: se o WebSocket cai, a pagina mostra 'conexao caiu, recarregue'. Recarregar funciona e retoma a partida; nao recarregar nao.",
     "Nenhum teste de carga, nenhuma medida de latencia, nenhuma metrica exportada. 'Estavel' aqui significa 'provei que funciona', nao 'medi que aguenta'.",
-    "Mesa de 2x2 emparelha por ordem de chegada na fila, entao nao existe convidar um amigo para ser seu parceiro. Com 4 humanos na fila, os assentos 0 e 1 (que sao adversarios) podem ser dois amigos que entraram juntos."
+    "Mesa de 2x2 emparelha por ordem de chegada na fila, entao nao existe convidar um amigo para ser seu parceiro. Com 4 humanos na fila, os assentos 0 e 1 (que sao adversarios) podem ser dois amigos que entraram juntos.",
+    "A carta na tela depende do glifo do bloco Playing Cards. Carregamos Noto Sans Symbols 2 do Google Fonts para nao depender do que o sistema tem, mas se a fonte nao carregar o fallback varia por plataforma e as cartas de figura (J/Q/K) ficam densas em tamanho pequeno. Medimos o retangulo de tinta do glifo para encaixar o corpo da carta; esse encaixe e calibrado para ESSA fonte.",
+    "O front nao tem teste de regressao visual. Os testes de interface conferem comportamento e estrutura, nao aparencia: uma regressao puramente visual (cor errada, elemento deslocado que ainda recebe clique) passaria. Os prints de e2e/olhar.mjs sao para inspecao manual, nao sao assercao."
   ],
   "tempo_minutos": 77,
   "nota_commit_final": "commit_final e o SHA do commit que carrega o estado verificado (codigo, testes, Docker e este arquivo com a prova). Como um arquivo nao pode conter o SHA do commit que o cria, o campo e preenchido no commit seguinte, que muda SO esta linha. Para reproduzir exatamente o que foi testado, use commit_final.",
   "provas_resumo": {
-    "cargo_test": "37 passed; 0 failed (truco_core) + 9 passed; 0 failed (truco_server)",
-    "playwright": "18 passed (3.9m), zero flaky, stack recem-criada com volume limpo",
+    "cargo_test": "39 passed; 0 failed (truco_core) + 9 passed; 0 failed (truco_server)",
+    "playwright": "22 passed (5.5m), zero flaky",
     "fumaca": "13 ok, 0 falhou",
-    "ci": "GitHub Actions 'testes' — completed success em 1m39s (cargo test + clippy -D warnings + cargo fmt --check)",
+    "ci": "GitHub Actions 'testes' — completed success (cargo test + clippy -D warnings + cargo fmt --check)",
     "docker": "docker compose ps -> app Up (healthy); imagem final sem toolchain Rust, uid 10001, cap_drop ALL"
   }
 }

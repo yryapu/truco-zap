@@ -301,6 +301,25 @@ pub struct LinhaRanking {
     pub saldo: i64,
 }
 
+/// A posição de UM jogador no ranking inteiro, mesmo que ele esteja longe do topo.
+///
+/// Existe porque um ranking em que você não se encontra não é um ranking: é uma lista de
+/// outras pessoas. Com o banco cheio, o top 50 deixa de conter quase todo mundo.
+pub async fn posicao_de(p: &Pool, jogador_id: &str) -> sqlx::Result<Option<LinhaRanking>> {
+    sqlx::query_as::<_, LinhaRanking>(
+        "SELECT posicao, apelido, vitorias, derrotas, saldo FROM (
+             SELECT ROW_NUMBER() OVER (
+                      ORDER BY vitorias DESC, (vitorias - derrotas) DESC, saldo DESC, apelido ASC
+                    ) AS posicao,
+                    id, apelido, vitorias, derrotas, saldo
+             FROM jogador
+         ) WHERE id = ?",
+    )
+    .bind(jogador_id)
+    .fetch_optional(p)
+    .await
+}
+
 pub async fn ranking(p: &Pool, limite: i64) -> sqlx::Result<Vec<LinhaRanking>> {
     sqlx::query_as::<_, LinhaRanking>(
         "SELECT ROW_NUMBER() OVER (

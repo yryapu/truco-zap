@@ -249,9 +249,30 @@ async fn eu(Autenticado(j): Autenticado) -> Resposta {
     Ok(Json(json!({"jogador": hub::perfil_json(&j)})).into_response())
 }
 
-async fn ranking(State(st): State<AppState>) -> Resposta {
-    let linhas = db::ranking(&st.pool, 50).await.map_err(|_| ruim("banco"))?;
-    Ok(Json(json!({"ranking": linhas})).into_response())
+/// Ranking público, mais a linha de quem está pedindo — ela vem sempre, esteja ele no topo
+/// ou em 300º. Sem isso o jogador não se acha na própria classificação (ver ERROS.md E16).
+async fn ranking(State(st): State<AppState>, headers: HeaderMap) -> Resposta {
+    let linhas = db::ranking(&st.pool, 25).await.map_err(|_| ruim("banco"))?;
+    let eu = match jogador_do_cookie(&st, &headers).await {
+        Some(j) => db::posicao_de(&st.pool, &j.id).await.ok().flatten(),
+        None => None,
+    };
+    Ok(Json(json!({"ranking": linhas, "eu": eu, "total_mostrado": linhas.len()})).into_response())
+}
+
+/// Resolve o jogador pelo cookie **sem** falhar quando não há sessão. Usado por rotas
+/// públicas que ficam melhores quando sabem quem está olhando.
+async fn jogador_do_cookie(st: &AppState, headers: &HeaderMap) -> Option<db::Jogador> {
+    let raw = headers.get(header::COOKIE)?.to_str().ok()?;
+    let tok = raw
+        .split(';')
+        .filter_map(|kv| kv.split_once('='))
+        .find(|(k, _)| k.trim() == auth::COOKIE)
+        .map(|(_, v)| v.trim())?;
+    db::jogador_por_token_hash(&st.pool, &auth::hash_token(tok))
+        .await
+        .ok()
+        .flatten()
 }
 
 async fn historico(State(st): State<AppState>, Autenticado(j): Autenticado) -> Resposta {
