@@ -1,0 +1,39 @@
+# Sobe tudo: `docker compose up -d --build`
+# Testa tudo: `docker compose --profile teste run --rm e2e`
+services:
+  app:
+    build: .
+    ports: ["8080:8080"]
+    volumes: ["dados:/dados"]
+    environment:
+      # Só para a pilha local de desenvolvimento/teste: libera webhook em http e para
+      # endereço privado, porque o receptor de teste roda na rede do Compose.
+      # Em produção estas DUAS variáveis ficam fora — é o que mantém a guarda de SSRF ligada.
+      TRUCO_WEBHOOK_ALLOW_HTTP: "1"
+      TRUCO_WEBHOOK_ALLOW_PRIVATE: "1"
+    # Endurecimento básico: sem root, sem capabilities, sem escalada de privilégio.
+    user: "10001:10001"
+    cap_drop: ["ALL"]
+    security_opt: ["no-new-privileges:true"]
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8080/api/saude"]
+      interval: 3s
+      timeout: 3s
+      retries: 30
+
+  e2e:
+    profiles: ["teste"]
+    image: mcr.microsoft.com/playwright:v1.56.0-noble
+    working_dir: /e2e
+    volumes: ["./e2e:/e2e"]
+    environment:
+      BASE_URL: http://app:8080
+      RECEPTOR_PORTA: "9099"
+      RECEPTOR_HOST: e2e
+      CI: "1"
+    depends_on:
+      app: { condition: service_healthy }
+    command: ["sh", "-c", "npm install --no-audit --no-fund && npx playwright test"]
+
+volumes:
+  dados:

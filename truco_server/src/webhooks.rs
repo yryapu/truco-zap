@@ -7,7 +7,7 @@
 use crate::db::{self, Pool};
 use hmac::{Hmac, Mac};
 use sha2::Sha256;
-use std::net::IpAddr;
+use std::net::{IpAddr, SocketAddr};
 use std::time::Duration;
 
 pub const EVENTOS: [&str; 3] = ["partida.comecou", "partida.terminou", "partida.resultado"];
@@ -21,33 +21,45 @@ pub fn assinar(segredo: &str, corpo: &str) -> String {
 
 /// Um webhook é "o servidor faz request para uma URL que o usuário escolheu" — SSRF por
 /// construção. Esta função é a mitigação, e ela roda **na entrega**, não só no registro,
-/// porque DNS pode mudar entre um e outro (rebinding).
-pub async fn url_permitida(url: &str, cfg: &Config) -> Result<(), String> {
+/// porque DNS pode mudar entre um e outro.
+///
+/// Devolve o endereço validado, e **não** apenas `Ok(())`, de propósito: validar o DNS e
+/// depois deixar o cliente HTTP resolver de novo é um TOCTOU clássico (DNS rebinding) — um
+/// resolvedor hostil devolve um IP público para a checagem e um privado para a conexão.
+/// Quem chama tem de **fixar** este endereço na conexão. Ver `entregar_uma`.
+pub async fn endereco_permitido(url: &str, cfg: &Config) -> Result<Option<(String, SocketAddr)>, String> {
     let u = reqwest::Url::parse(url).map_err(|e| format!("url invalida: {e}"))?;
     match u.scheme() {
         "https" => {}
         "http" if cfg.permite_http => {}
         s => return Err(format!("esquema nao permitido: {s}")),
     }
-    let host = u.host_str().ok_or("url sem host")?;
+    let host = u.host_str().ok_or("url sem host")?.to_string();
     if cfg.permite_privado {
-        return Ok(());
+        // Pilha local de teste: sem fixação e sem checagem. Nunca em produção.
+        return Ok(None);
     }
     let porta = u.port_or_known_default().unwrap_or(443);
-    let ips: Vec<IpAddr> = tokio::net::lookup_host((host, porta))
+    let enderecos: Vec<SocketAddr> = tokio::net::lookup_host((host.as_str(), porta))
         .await
         .map_err(|e| format!("dns falhou para {host}: {e}"))?
-        .map(|sa| sa.ip())
         .collect();
-    if ips.is_empty() {
+    if enderecos.is_empty() {
         return Err(format!("dns nao resolveu {host}"));
     }
-    for ip in ips {
-        if ip_interno(ip) {
-            return Err(format!("{host} resolve para endereco interno ({ip})"));
+    // Recusa se QUALQUER resposta for interna: um host que mistura IP público e privado é
+    // exatamente o perfil de um ataque, não de um webhook legítimo.
+    for sa in &enderecos {
+        if ip_interno(sa.ip()) {
+            return Err(format!("{host} resolve para endereco interno ({})", sa.ip()));
         }
     }
-    Ok(())
+    Ok(Some((host, enderecos[0])))
+}
+
+/// Compatível com o uso de validação-só (registro), onde não há conexão a fixar.
+pub async fn url_permitida(url: &str, cfg: &Config) -> Result<(), String> {
+    endereco_permitido(url, cfg).await.map(|_| ())
 }
 
 fn ip_interno(ip: IpAddr) -> bool {
@@ -159,7 +171,24 @@ async fn entregar_uma(
     evento: &str,
     corpo: &str,
 ) -> Result<(), String> {
-    url_permitida(url, cfg).await?;
+    let fixado = endereco_permitido(url, cfg).await?;
+
+    // Fecha o TOCTOU: a conexão vai para o endereço que acabou de ser validado, não para o
+    // que o DNS devolver de novo na hora do connect. `resolve` mantém o SNI e o header Host
+    // do domínio original, então TLS continua sendo verificado contra o nome certo.
+    let cliente_fixado = match &fixado {
+        Some((host, addr)) => Some(
+            reqwest::Client::builder()
+                .user_agent("truco-zap/1.0")
+                .redirect(reqwest::redirect::Policy::none())
+                .resolve(host, *addr)
+                .build()
+                .map_err(|e| format!("cliente: {e}"))?,
+        ),
+        None => None,
+    };
+    let http = cliente_fixado.as_ref().unwrap_or(http);
+
     let assinatura = assinar(segredo, corpo);
     let r = http
         .post(url)
@@ -226,5 +255,24 @@ mod testes {
     async fn permite_http_e_privado_quando_explicitamente_ligado() {
         let aberto = Config { permite_http: true, permite_privado: true, max_tentativas: 3 };
         assert!(url_permitida("http://127.0.0.1:9/h", &aberto).await.is_ok());
+        // Com privado liberado nao ha endereco a fixar — a pilha de teste resolve normalmente.
+        assert_eq!(endereco_permitido("http://127.0.0.1:9/h", &aberto).await.unwrap(), None);
+    }
+
+    /// O endereco validado tem de voltar para quem chama, senao a conexao resolve de novo
+    /// e o rebinding passa. Este teste existe por causa de E3 (ver ERROS.md da pesquisa).
+    #[tokio::test]
+    async fn devolve_o_endereco_validado_para_ser_fixado_na_conexao() {
+        let r = endereco_permitido("https://one.one.one.one/h", &cfg()).await;
+        match r {
+            Ok(Some((host, addr))) => {
+                assert_eq!(host, "one.one.one.one");
+                assert!(!ip_interno(addr.ip()));
+                assert_eq!(addr.port(), 443);
+            }
+            // Sem rede no ambiente de teste, o DNS falha — e falhar fechado tambem e correto.
+            Ok(None) => panic!("com permite_privado=false o endereco tem de voltar"),
+            Err(e) => eprintln!("sem DNS neste ambiente ({e}); o caminho de erro e fechado"),
+        }
     }
 }
