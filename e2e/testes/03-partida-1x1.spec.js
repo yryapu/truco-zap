@@ -1,6 +1,6 @@
 // C3/C7: partida 1x1 inteira entre dois navegadores independentes, por WebSocket.
 import { test, expect } from '@playwright/test';
-import { entrarComoConvidado, abrirMesa, jogarAteOFim } from './ajuda.js';
+import { entrarComoConvidado, abrirMesa, jogarAteOFim, quemPodePedir } from './ajuda.js';
 
 test('dois jogadores jogam uma partida 1x1 do início ao fim e o saldo muda', async ({ browser }) => {
   const ctxs = [await browser.newContext(), await browser.newContext()];
@@ -42,8 +42,9 @@ test('truco sobe o valor da mão de 1 para 3 e o adversário vê a resposta', as
 
   for (const p of pages) await expect(p.getByTestId('valor-mao')).toHaveText('1');
 
-  // Quem tem a vez pede truco.
-  const pedinte = (await pages[0].getByTestId('btn-pedir').isVisible()) ? pages[0] : pages[1];
+  // Quem tem a vez pede truco. Espera de verdade pelo botão em vez de ler `isVisible` num
+  // instante arbitrário — foi o que me deu um falso negativo (ver ERROS.md E4).
+  const pedinte = await quemPodePedir(pages);
   const respondente = pedinte === pages[0] ? pages[1] : pages[0];
   await expect(pedinte.getByTestId('btn-pedir')).toContainText('TRUCO');
   await pedinte.getByTestId('btn-pedir').click();
@@ -58,8 +59,9 @@ test('truco sobe o valor da mão de 1 para 3 e o adversário vê a resposta', as
   await pedinte.getByTestId('btn-aceitar').click();
   for (const p of pages) await expect(p.getByTestId('valor-mao')).toHaveText('6');
 
-  // Quem acabou de pedir não pode pedir de novo (R9).
-  await expect(pedinte.getByTestId('btn-pedir')).toBeHidden();
+  // R9: só a dupla que NÃO fez o último pedido pode subir. O último pedido (6) foi do
+  // respondente, então agora é o pedinte original que pode pedir nove — e o respondente não.
+  await expect(pedinte.getByTestId('btn-pedir')).toContainText('nove');
   await expect(respondente.getByTestId('btn-pedir')).toBeHidden();
 
   for (const c of ctxs) await c.close();
@@ -71,7 +73,7 @@ test('correr do truco entrega 1 ponto, não 3', async ({ browser }) => {
   for (const p of pages) await entrarComoConvidado(p);
   await abrirMesa(pages, '1x1', 0);
 
-  const pedinte = (await pages[0].getByTestId('btn-pedir').isVisible()) ? pages[0] : pages[1];
+  const pedinte = await quemPodePedir(pages);
   const respondente = pedinte === pages[0] ? pages[1] : pages[0];
   await pedinte.getByTestId('btn-pedir').click();
   await respondente.getByTestId('btn-correr').click();

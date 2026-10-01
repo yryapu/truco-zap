@@ -2,6 +2,10 @@
 import { test, expect } from '@playwright/test';
 import { entrarComoConvidado, abrirMesa, jogarAteOFim } from './ajuda.js';
 
+// Uma partida 2x2 até 12 pontos são muitas mãos vezes quatro navegadores. O limite global de
+// 120s não cabe aqui, e aumentar o limite é mais honesto que encurtar a partida.
+test.setTimeout(420_000);
+
 test('quatro jogadores formam duas duplas e a partida termina', async ({ browser }) => {
   const ctxs = [];
   const pages = [];
@@ -29,7 +33,7 @@ test('quatro jogadores formam duas duplas e a partida termina', async ({ browser
     await expect(p.getByTestId('jogadores')).not.toContainText('🤖');
   }
 
-  await jogarAteOFim(pages, 150_000);
+  await jogarAteOFim(pages, 360_000);
 
   const textos = await Promise.all(pages.map((p) => p.getByTestId('fim').textContent()));
   expect(textos.filter((t) => t.includes('Vitória')).length, textos.join(' | ')).toBe(2);

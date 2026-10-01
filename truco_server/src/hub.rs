@@ -22,7 +22,7 @@ pub type ConnId = u64;
 /// Existe para que "começa a jogar em menos de um minuto" seja verdade com a casa vazia
 /// (decisão D15).
 pub const ESPERA_ATE_ROBO: Duration = Duration::from_secs(8);
-const PAUSA_ENTRE_MAOS: Duration = Duration::from_millis(2200);
+const PAUSA_ENTRE_MAOS: Duration = Duration::from_millis(1200);
 const PAUSA_DO_ROBO: Duration = Duration::from_millis(900);
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Deserialize)]

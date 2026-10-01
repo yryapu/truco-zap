@@ -5,7 +5,7 @@ import { defineConfig, devices } from '@playwright/test';
 
 export default defineConfig({
   testDir: './testes',
-  timeout: 120_000,
+  timeout: 180_000,
   expect: { timeout: 20_000 },
   // Sequencial: as suítes compartilham um servidor e um banco; paralelismo aqui compraria
   // segundos e pagaria em testes intermitentes.

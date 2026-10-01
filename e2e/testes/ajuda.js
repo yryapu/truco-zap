@@ -37,25 +37,64 @@ async function visivel(loc) {
   return loc.isVisible().catch(() => false);
 }
 
-/// Dirige a(s) página(s) até alguém ganhar. Política: aceita tudo, nunca pede truco (os
-/// pedidos têm teste próprio), joga a primeira carta disponível.
-export async function jogarAteOFim(pages, limiteMs = 100_000) {
-  const inicio = Date.now();
-  while (Date.now() - inicio < limiteMs) {
-    for (const p of pages) {
-      if (await visivel(p.getByTestId('fim'))) return p;
-      for (const id of ['btn-onze-jogar', 'btn-aceitar']) {
-        const b = p.getByTestId(id);
-        if (await visivel(b)) await b.click({ timeout: 2000 }).catch(() => {});
-      }
-      const cartas = p.locator('[data-testid^="carta-"]:not([disabled])');
-      if ((await cartas.count().catch(() => 0)) > 0) {
-        await cartas.first().click({ timeout: 2000 }).catch(() => {});
+/// Um passo de jogo, resolvido dentro da página num único round-trip.
+///
+/// Usa `.click()` do DOM em vez de `locator.click()` de propósito: o papel desta função é
+/// *avançar o jogo* até o fim, e uma partida inteira são dezenas de jogadas — quatro
+/// `isVisible()` por página por iteração custava mais que o jogo. Os cliques que precisam ser
+/// cliques de verdade (cadastro, pedir truco, aceitar, correr, escolher carta) têm testes
+/// próprios que usam `locator.click()` com as checagens de actionability do Playwright.
+async function passo(page) {
+  return page.evaluate(() => {
+    const el = (sel) => document.querySelector(sel);
+    const mostrado = (e) => e && !e.hidden && e.offsetParent !== null && !e.disabled;
+    if (mostrado(el('[data-testid="fim"]'))) return 'fim';
+    for (const id of ['btn-onze-jogar', 'btn-aceitar']) {
+      const b = el(`[data-testid="${id}"]`);
+      if (mostrado(b)) {
+        b.click();
+        return id;
       }
     }
-    await pages[0].waitForTimeout(120);
+    const c = el('[data-testid^="carta-"]:not([disabled])');
+    if (c) {
+      c.click();
+      return 'carta';
+    }
+    return 'nada';
+  });
+}
+
+/// Dirige a(s) página(s) até alguém ganhar. Política: aceita tudo, nunca pede truco (os
+/// pedidos têm teste próprio), joga a primeira carta disponível. Devolve a página que venceu.
+export async function jogarAteOFim(pages, limiteMs = 180_000) {
+  const inicio = Date.now();
+  let paradas = 0;
+  while (Date.now() - inicio < limiteMs) {
+    let mexeu = false;
+    for (const p of pages) {
+      const r = await passo(p).catch(() => 'nada');
+      if (r === 'fim') return p;
+      if (r !== 'nada') mexeu = true;
+    }
+    paradas = mexeu ? 0 : paradas + 1;
+    // Nada aconteceu: ou é a pausa entre mãos, ou o servidor está pensando. Espera pouco.
+    await pages[0].waitForTimeout(mexeu ? 40 : 200);
+    if (paradas > 400) throw new Error('o jogo parou de avançar — ninguém tem ação possível');
   }
-  throw new Error('nenhuma partida terminou dentro do limite');
+  const fins = await Promise.all(
+    pages.map((p) => p.getByTestId('fim').textContent().catch(() => '—'))
+  );
+  throw new Error(`nenhuma partida terminou em ${limiteMs}ms. Estado de fim: ${fins.join(' | ')}`);
+}
+
+/// Devolve a página cujo jogador tem a vez e pode pedir truco, esperando até aparecer.
+export async function quemPodePedir(pages) {
+  return Promise.race(
+    pages.map((p) =>
+      p.getByTestId('btn-pedir').waitFor({ state: 'visible', timeout: 25_000 }).then(() => p)
+    )
+  );
 }
 
 /// Grava todos os quadros WebSocket de uma página. Precisa ser chamado antes de conectar.
