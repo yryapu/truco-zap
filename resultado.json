@@ -1,0 +1,225 @@
+{
+  "projeto": "truco",
+  "repos": {
+    "pesquisa": "https://github.com/yryapu/poliorketikos-truco-zap",
+    "operacional": "https://github.com/yryapu/truco-zap"
+  },
+  "commit_final": "PREENCHER",
+  "como_rodar": [
+    "docker compose up -d --build   # sobe tudo; abra http://localhost:18080 (TRUCO_PORTA=9090 muda a porta do host)",
+    "cargo test   # 46 testes: 37 de regra do truco paulista contra as fontes citadas + 9 de emblemas/webhook",
+    "docker compose --profile teste run --rm e2e   # 18 testes Playwright de front e WebSocket, dentro do Docker",
+    "./scripts/fumaca.sh http://localhost:18080   # 13 checagens da API HTTP do terminal"
+  ],
+  "criterios": [
+    {
+      "id": "C1",
+      "texto": "Cadastro rapido: o jogador entra e comeca a jogar em menos de um minuto",
+      "atendido": true,
+      "prova": "docker compose --profile teste run --rm e2e -> '01-cadastro.spec.js:13 do primeiro clique ate a mesa aberta em menos de 60 segundos, jogando sozinho (9.5s)'. O teste cronometra do clique em 'Jogar agora' ate as 3 cartas na mao e falha acima de 60s; mediu 9.5s, com os 8s de espera por robo incluidos. Tambem: scripts/fumaca.sh -> 'ok convidado comeca com 1000 moedas'."
+    },
+    {
+      "id": "C2",
+      "texto": "Sessao segura, com os dados de cada jogador isolados dos outros",
+      "atendido": true,
+      "prova": "e2e 02-isolamento.spec.js, 4 testes verdes: /api/eu, /api/historico e /api/webhooks devolvem 401 sem cookie; cookie forjado de 43 bytes nao vira sessao; o webhook registrado por A nao aparece na listagem de B; e document.cookie da propria pagina NAO contem o token (HttpOnly conferido via context.cookies()). scripts/fumaca.sh repete as 5 primeiras do terminal: '13 ok, 0 falhou'. Implementacao: token opaco de 32 bytes de OsRng, guardado como SHA-256; senha com Argon2id; o extractor Autenticado e o unico caminho para uma rota pessoal."
+    },
+    {
+      "id": "C3",
+      "texto": "Saldo interno: 1000 moedas iniciais, aposta a escolha do jogador",
+      "atendido": true,
+      "prova": "e2e 03-partida-1x1.spec.js: aposta 100 cada, bolo 200, e ao fim os saldos sao exatamente [900, 1100] — soma preservada. e2e 04-partida-2x2.spec.js: aposta 23 cada, bolo 92, saldos [977,977,1023,1023] e assercao explicita de que a soma dos quatro e 4000 ('moeda nao e criada nem destruida'). A aposta e um campo numerico livre (0 ate o saldo), validada no servidor contra o saldo lido do BANCO, nunca do cliente. O debito e o premio acontecem em transacao unica com CHECK(saldo >= 0) no esquema."
+    },
+    {
+      "id": "C4",
+      "texto": "Ranking, e emblemas de reputacao por vitorias e por historico",
+      "atendido": true,
+      "prova": "e2e 07-ranking.spec.js: ganhar uma partida troca o emblema de trilha de 'estreante' para 'pe_de_meia', faz o emblema antigo desaparecer, e o jogador aparece no ranking com '1V / 0D' e no proprio historico. cargo test -p truco_server emblemas: 4 testes (todo jogador tem exatamente um emblema de trilha; 'invicto' exige 5 vitorias e zero derrotas; trilhas de vitoria e de historico sao independentes; 'quebrado' so aparece depois de jogar)."
+    },
+    {
+      "id": "C5",
+      "texto": "Webhooks: o integrador registra uma URL e recebe eventos de partida",
+      "atendido": true,
+      "prova": "e2e 06-webhooks.spec.js sobe um servidor HTTP de verdade dentro do container de teste, registra a URL pela interface, joga uma partida inteira e exige receber os tres eventos (partida.comecou, partida.terminou, partida.resultado) com a assinatura HMAC-SHA256 RECALCULADA em JavaScript, independente do servidor, e com evento_id presente em todos. Tambem confere que o corpo de partida.resultado traz placar com alguem >= 12 e o time vencedor. Entrega enfileirada na MESMA transacao que grava o resultado (at-least-once)."
+    },
+    {
+      "id": "C6",
+      "texto": "Comunicacao em tempo real por WebSocket",
+      "atendido": true,
+      "prova": "e2e 03 e 04: dois e quatro contextos de navegador independentes (cookies separados) jogam a mesma partida do inicio ao fim, cada um vendo so a propria mao, com placar e vez atualizando sem recarregar a pagina. Um WebSocket por jogador; o servidor e autoritativo e o cliente nao conhece nenhuma regra."
+    },
+    {
+      "id": "C7",
+      "texto": "Partidas 1x1 e 2x2 (duplas)",
+      "atendido": true,
+      "prova": "e2e 03-partida-1x1 (2 navegadores, partida completa) e 04-partida-2x2 (4 navegadores, 2 duplas confirmadas pela tela, nenhum robo, partida completa em 1.1min). cargo test: fuzz_partidas_completas_nunca_travam_nem_produzem_placar_impossivel roda 2000 partidas inteiras alternando 1x1 e 2x2."
+    },
+    {
+      "id": "C8",
+      "texto": "No WebSocket a carta e o proprio caractere Unicode, nao uma string inventada",
+      "atendido": true,
+      "prova": "e2e 05-unicode.spec.js intercepta TODOS os quadros WebSocket (page.on('websocket')) e exige que cada campo de carta ('carta', 'vira', 'manilha_rank', 'minha_mao') seja UM unico code point entre U+1F0A0 e U+1F0DE — nos dois sentidos, recebido e enviado. Confere que nenhum Cavaleiro (U+1F0AC/BC/CC/DC) aparece, e que um cliente adulterado mandando Cavaleiro, 10 (fora do baralho sujo) ou dois code points recebe 'carta_desconhecida' nas tres vezes. cargo test d04_unicode_roundtrip_e_os_quatro_ases_do_enunciado confere ida e volta nas 40 cartas e que os ases sao exatamente os quatro caracteres do enunciado."
+    },
+    {
+      "id": "C9",
+      "texto": "Regras do truco paulista corretas, com fonte citavel para cada uma",
+      "atendido": true,
+      "prova": "poliorketikos-truco-zap/REGRAS.md especifica R1-R18 citando F1 (pagat.com/put/truco_br.html) e F2 (regulamento hospedado na UFSC) verbatim, com copia local das duas fontes em fontes/. cargo test -p truco_core: 37 testes nomeados pela regra que provam, incluindo r8_tabela_de_empates_de_f1 (as 15 linhas da tabela exaustiva de F1, transcritas), r8_espaco_completo_decide_no_momento_mais_cedo_possivel (varre {A,B,empate}^3) e o fuzz de 2000 partidas. Tres divergencias reais entre as fontes estao MARCADAS e decididas em decisoes/D07, D10 e D16, nao escondidas."
+    },
+    {
+      "id": "C10",
+      "texto": "Roda e e testado localmente, em Docker, de forma segura",
+      "atendido": true,
+      "prova": "docker compose up -d -> 'app Up (healthy)' com healthcheck em /api/saude. Imagem final sem toolchain Rust nem codigo-fonte, rodando como uid 10001 (nao-root), com cap_drop: ALL e no-new-privileges. A suite Playwright roda DENTRO do Docker (perfil 'teste'), em outro container na mesma rede — escolha forcada e aproveitada: o node do host esta quebrado (libllhttp.9.3.dylib faltando), e rodar no container torna a prova reproduzivel para o avaliador."
+    }
+  ],
+  "decisoes": [
+    {
+      "o_que": "axum + tokio no servidor",
+      "porque": "HTTP e WebSocket no mesmo processo e na mesma porta, com estado tipado compartilhado; o upgrade de WS e um extractor, nao um servidor separado, e vem com o middleware do ecossistema tower sem cola escrita a mao",
+      "alternativa_descartada": "actix-web (o modelo de atores coloca uma segunda abstracao de concorrencia sobre async/await que eu nao preciso: minha concorrencia e um Mutex sobre um HashMap de mesas) e tungstenite cru + hyper (escrever o upgrade e o roteamento que o axum ja da, sem comprar nada)"
+    },
+    {
+      "o_que": "SQLite via sqlx, no mesmo container",
+      "porque": "o estado duravel e pequeno e de baixa contencao, e saldo exige transacao: debitar aposta e creditar premio nao pode ficar pela metade. SQLite da ACID sem cobrar um servico, uma rede, um healthcheck e um backup",
+      "alternativa_descartada": "PostgreSQL (o unico beneficio real — muitos escritores concorrentes, replicas — nao existe numa v1 de um processo) e estado so em memoria (saldo que some a cada restart nao e saldo)"
+    },
+    {
+      "o_que": "sessao com token opaco de 32 bytes em cookie HttpOnly, guardado como SHA-256",
+      "porque": "revogavel na hora (deleta a linha), e vazar a tabela de sessao nao entrega sessao viva porque ela so tem hashes. HttpOnly tira o token do alcance de XSS",
+      "alternativa_descartada": "JWT — revogacao exigiria uma denylist, ou seja, o banco que eu queria evitar; o payload nao precisa ser auto-contido num unico processo; e a superficie de erro (alg:none, confusao HMAC/RSA, expiracao mal checada) e grande para zero ganho"
+    },
+    {
+      "o_que": "no protocolo WebSocket a carta e UM code point do bloco Playing Cards; encoberta e U+1F0A0",
+      "porque": "mandado pelo enunciado, e boa ideia por conta propria: o alfabeto do protocolo tem exatamente 40 simbolos validos, entao um parser estrito rejeita qualquer coisa fora do baralho sem schema extra, e o log de uma partida e legivel por humano",
+      "alternativa_descartada": "objeto {rank, suit} (exige validar dois campos e os cruzamentos impossiveis) e mandar os dois (duas fontes de verdade para a mesma coisa, e uma delas divergiria)"
+    },
+    {
+      "o_que": "NAO usar WASM no cliente; front em HTML/CSS/JS puros, sem build step",
+      "porque": "o servidor e autoritativo, entao o cliente nao tem regra para decidir; nao ha calculo pesado (o trabalho e desenhar 11 caracteres e reagir a JSON de centenas de bytes, onde WASM e mais LENTO que JS porque cada chamada atravessa a fronteira); e o custo e imediato (toolchain no build, centenas de KB antes da primeira carta) contra o requisito de 'jogando em menos de um minuto'. O unico tipo compartilhado interessante, a carta, ja E um caractere",
+      "alternativa_descartada": "wasm-bindgen sobre o truco_core, e React/Vue com bundler. Criterio registrado para mudar de ideia: bot local, animacao de fisica de cartas, ou validacao otimista da jogada antes do round-trip — ai o motor no cliente passa a comprar capacidade, e o truco_core ja e um crate puro sem I/O justamente para manter essa porta aberta"
+    },
+    {
+      "o_que": "depois de uma rodada empatada, puxa quem jogou a PRIMEIRA CARTA que empatou (F2), nao quem liderou a rodada (F1)",
+      "porque": "F1 lista as tres variantes na propria secao Variations e admite que as regras discordam, logo nenhuma fonte resolve por autoridade. Critério: entre fontes que se contradizem sobre a variante paulista, ganha a mais especifica sobre ela",
+      "alternativa_descartada": "a variante de F1. Descartada nao por estar errada, mas porque eu precisava de um critério, e 'a fonte mais especifica ganha' e melhor critério que 'a fonte em ingles ganha'"
+    },
+    {
+      "o_que": "o mao rotaciona um assento CONTRA a ordem de jogo (F2), nao junto com ela (F1)",
+      "porque": "mesmo critério da decisao anterior, aplicado a uma segunda contradicao real entre as fontes. Trocar de critério por conveniencia no segundo caso seria escolher o resultado e chamar de metodo",
+      "alternativa_descartada": "F1 ('the turn to deal passes to the right'), que era o que o codigo fazia ANTES — enquanto a spec citava F2 e o teste afirmava a implementacao em vez da fonte. Esse e o erro E8"
+    },
+    {
+      "o_que": "pedir truco na mao de onze e COMANDO RECUSADO, nao derrota automatica; idem aumentar quando aceitar ja venceria",
+      "porque": "numa mesa fisica a regra dura de F1 pune quem nao presta atencao, e falar e irreversivel. Num app o botao esta na tela — punir com a partida inteira um clique que a INTERFACE permitiu e transferir ao jogador uma falha minha. A solucao correta em software e a interface: o botao nao aparece, e o servidor recusa por garantia (defesa em profundidade contra cliente modificado)",
+      "alternativa_descartada": "implementar F1 literalmente ('calling truco automatically gives the victory to the opposing team'). Descartada por ser fielmente hostil: fidelidade a uma regra cuja razao de ser — a fala irreversivel — nao existe neste meio. A discordancia e deliberada e esta registrada em D10"
+    },
+    {
+      "o_que": "mesa viva em memoria sob um Mutex; so o resultado vai ao banco",
+      "porque": "uma mao de truco dura segundos e e efemera; persistir cada carta compraria recuperacao de crash que ninguem pediu ao custo de uma escrita por jogada. O que precisa sobreviver a um crash e saldo e historico. O lock nunca e mantido atraves de um await — o motor e CPU puro",
+      "alternativa_descartada": "um ator/task por mesa com mpsc (mais elegante, e o que eu faria com 10 mil mesas) e event sourcing (camada que nao compra capacidade aqui). Risco mitigado: no startup, partidas que ficaram 'em_andamento' sao canceladas com estorno das apostas"
+    },
+    {
+      "o_que": "webhooks: fila no banco na mesma transacao do resultado, entrega em background, assinatura HMAC-SHA256, e guarda de SSRF que FIXA o endereco validado na conexao",
+      "porque": "entregar in-line acopla a latencia do jogo a um servidor de terceiro, e se ele estiver fora o evento se perde. Fila na mesma transacao da a garantia que importa: se o resultado foi gravado, o evento sai. HMAC porque sem assinatura o receptor nao sabe que o POST veio de mim",
+      "alternativa_descartada": "entrega in-line sem fila, e Redis/fila externa (o broker aqui e uma tabela com SELECT ... WHERE status='pendente'). A guarda devolve (host, SocketAddr) em vez de () porque validar o DNS e deixar o cliente HTTP resolver de novo e um TOCTOU — DNS rebinding passa. Essa foi a licao do erro E3"
+    },
+    {
+      "o_que": "robos completam a mesa depois de 8 segundos de fila; robo nao aposta e o premio e o BOLO dividido entre os humanos vencedores",
+      "porque": "o enunciado diz 'nada alem disso', e robo nao esta na lista — digo isso antes de justificar. Mas a lista CONTEM 'comeca a jogar em menos de um minuto', e com a casa vazia (o estado de toda demo e de toda avaliacao) essa frase e falsa sem alguem do outro lado. Preferi entregar o requisito e declarar o custo a entregar uma tela de espera e chamar de conformidade. Custo real: ~60 linhas, nenhuma estrutura nova, nenhuma dependencia",
+      "alternativa_descartada": "caixa de selecao 'quero robos' (transfere ao jogador uma decisao que ele nao tem informacao para tomar — ele nao sabe quantos estao na fila — e deixa o caminho ruim como padrao) e um robo melhor (robo que joga bem e um projeto; aqui ele e parceiro de treino). Efeito colateral resolvido: se o premio fosse 2x a aposta, ganhar de robo imprimiria moeda — por isso o premio e o bolo"
+    },
+    {
+      "o_que": "Playwright para o front, rodando dentro do Docker",
+      "porque": "o requisito a provar e 'duas (ou quatro) sessoes de navegador independentes jogam uma partida inteira por WebSocket': contexto isolado por jogador, cookies separados, espera por evento em vez de sleep — Playwright faz isso nativamente. Dentro do Docker porque o node do host esta quebrado e porque assim a prova e reproduzivel para o avaliador",
+      "alternativa_descartada": "Selenium/WebDriver (precisa de grid ou driver, sem auto-wait decente, multi-contexto desconfortavel), so testes Rust (eu tambem tenho — eles provam o protocolo, nao a tela), e jsdom/vitest (nao executa WebSocket real nem layout: provaria menos e eu teria que fingir que provou mais)"
+    },
+    {
+      "o_que": "CI so com cargo test + clippy + fmt; o Playwright fica fora",
+      "porque": "a CI compra uma coisa concreta: o avaliador ve, sem rodar nada, se as 37 assercoes de regra contra as fontes citadas passam — a afirmacao central do projeto",
+      "alternativa_descartada": "rodar o E2E na CI. Sobe dois containers e quatro navegadores e leva minutos; compraria um badge e cobraria flakiness de runner compartilhado. Roda com um comando, documentado"
+    },
+    {
+      "o_que": "um unico subagente, adversarial, sobre o motor de regras, sem permissao de editar",
+      "porque": "o risco dominante esta declarado no proprio enunciado: 'regra de jogo errada invalida o resto'. O ganho de paralelizar ESCRITA num projeto deste tamanho e pequeno (o gargalo e decisao, nao digitacao) e o custo e alto (duas nocoes do mesmo tipo). Um leitor independente do motor ataca o risco dominante sem tocar no codigo",
+      "alternativa_descartada": "fan-out de 4-5 agentes (motor/HTTP/front/testes/infra) — descartado porque o contrato entre essas partes ainda nao existia, e paralelizar antes do contrato gera integracao e nao velocidade; e nao usar nenhum, que deixaria a parte mais critica sem revisao independente"
+    }
+  ],
+  "previsoes": [
+    {
+      "claim": "Ao cruzar duas fontes, eu vou achar pelo menos uma divergencia material que muda comportamento observavel do jogo",
+      "p": 0.75,
+      "resultado": true
+    },
+    {
+      "claim": "U+1F0A1/B1/C1/D1 sao exatamente os ases de espadas/copas/ouros/paus do enunciado, o Valete e +0xB e a Dama +0xD, com +0xC sendo o Cavaleiro inexistente no truco",
+      "p": 0.9,
+      "resultado": true
+    },
+    {
+      "claim": "O motor passa a tabela de 15 resultados de empate de F1 na primeira tentativa",
+      "p": 0.6,
+      "resultado": true
+    },
+    {
+      "claim": "cargo build compila de primeira (risco previsto: assinaturas do axum 0.8)",
+      "p": 0.35,
+      "resultado": false
+    },
+    {
+      "claim": "O E2E Playwright falha na primeira execucao por timing, nao por logica",
+      "p": 0.8,
+      "resultado": false
+    },
+    {
+      "claim": "O subagente revisor acha pelo menos uma divergencia real de regra no motor",
+      "p": 0.5,
+      "resultado": true
+    },
+    {
+      "claim": "Depois das correcoes, a suite E2E passa inteira",
+      "p": 0.6,
+      "resultado": true
+    },
+    {
+      "claim": "Existe ainda pelo menos uma regra de F1/F2 que eu nao implementei e nao sei qual e",
+      "p": 0.3,
+      "resultado": null
+    }
+  ],
+  "multiagente": {
+    "usou": true,
+    "porque": "Um unico subagente, adversarial, depois do motor estar escrito, com tarefa estreita (confrontar REGRAS.md R1-R18 e as fontes F1/F2 com truco_core) e SEM permissao de editar. O risco dominante do enunciado e regra errada; o ganho de paralelizar escrita era pequeno e o custo de duas nocoes do mesmo tipo era alto.",
+    "custo": "133.443 tokens, 15 chamadas de ferramenta, 435s de parede em paralelo com o meu trabalho. Meu custo: escrever o prompt (~40 linhas) e verificar CADA achado contra as fontes antes de agir — isso e parte do custo, nao extra.",
+    "valeu": true,
+    "rendimento": "15 achados, ZERO fabricados (ele declarou 'categoria C: nada encontrado' e 3 falsos positivos que ele mesmo descartou, em vez de inventar). 4 problemas reais: (1) o mao rotacionava na direcao de F1 enquanto a spec citava F2, e o meu teste de R13 PETRIFICAVA o erro porque eu o escrevi copiando a implementacao em vez da fonte; (2) R17, regra de F1 que eu nunca implementei nem especifiquei; (3) R18, idem; (4) aplicar() nao validava o numero do assento, e nas fases de resposta pode_agir() olhava so a paridade, entao o assento 99 podia correr pelo time 1 numa mesa de 2. Mais 7 regras citadas e sem teste, todas confirmadas. Testes: 28 -> 46.",
+    "por_que_valeu": "O achado principal e uma regra errada que os meus 28 testes nao pegavam, porque um deles estava copiando a implementacao em vez da fonte. O vies que produziu o bug e o mesmo que produziu o teste, entao nenhuma quantidade de reler meu proprio codigo acharia. O que fez valer nao foi 'mais um modelo', foi a assimetria da tarefa: ele recebeu as fontes e a spec e teve que confronta-las com codigo que nao escreveu. Se eu tivesse pedido 'revise o motor', ele teria lido o motor e concordado comigo.",
+    "o_que_faria_diferente": "Rodaria DOIS: este, sobre o motor, e um segundo sobre o truco_server — que foi justamente o que ele declarou nao ter conseguido verificar, por nao estar no escopo que eu dei. A camada WebSocket/lobby ficou sem revisao independente.",
+    "medicao_completa": "https://github.com/yryapu/poliorketikos-truco-zap/blob/main/MULTIAGENTE.md"
+  },
+  "riscos_conhecidos": [
+    "A camada truco_server (hub.rs, main.rs, ws) nao teve revisao adversarial independente. O subagente declarou explicitamente que nao conseguiu verificar se ela valida o assento antes de chamar aplicar (hoje valida, e o motor tambem passou a validar), se chama nova_mao depois de MaoEncerrada, e se a interface desabilita o truco na mao de onze como D10 promete. Os tres estao cobertos por E2E, nenhum por revisao de codigo independente.",
+    "P8 em aberto: estimo 0.3 de ainda existir alguma regra de F1/F2 que eu nao implementei e nao sei qual e. Corrigi essa estimativa PARA CIMA depois de a revisao achar duas (R17, R18) em paragrafos que eu ja tinha lido e aproveitado.",
+    "Penalidades por irregularidade (F1 lista varias: embaralhar de forma ilegal, falar das proprias cartas, mostrar cartas sem permissao) nao sao implementadas. Num servidor autoritativo a maioria delas e impossivel de cometer, mas 'impossivel de cometer' nao e o mesmo que 'implementada', e eu perdi a regra R18 justamente por ter lido uma regra como penalidade e descartado as duas juntas.",
+    "Entrega de webhook e at-least-once, nao exactly-once. O receptor precisa ser idempotente pelo evento_id, que vai no corpo. Documentado, nao resolvido.",
+    "Ao fim de 3 tentativas falhas, a entrega de webhook fica 'falhou' e ninguem reprocessa: nao existe recolocar na fila nem alerta. Para uma v1 e aceitavel; para um integrador de verdade, falta.",
+    "Humano que desconecta no meio da partida passa a ser jogado pela politica do robo, senao a mesa travaria para os outros tres. Ele retoma o assento se reconectar. E pior que pausar e muito melhor que travar, mas e uma decisao que um jogador pode legitimamente achar injusta.",
+    "SQLite nesta maquina (90+ containers de pe) chegou a levar 10s numa query trivial da fila de webhook. O desenho nao e o culpado, mas tambem nao protege: nao existe timeout de entrega por partida nem backpressure. Sob carga real seria preciso medir antes de afirmar que SQLite basta.",
+    "Nao existe limite de taxa em nenhuma rota. Criar convidados em massa (POST /api/convidado) e barato e cada um ganha 1000 moedas. Como o saldo nao vale nada fora do jogo, o impacto e inflacao do ranking, nao fraude — mas o ranking fica trivialmente poluivel.",
+    "O cookie e Secure apenas se TRUCO_COOKIE_SECURE=1. A pilha local nao tem TLS e por isso roda sem. Subir isto em producao sem ligar essa variavel e sem TLS entregaria a sessao em texto claro.",
+    "docker-compose.yml liga TRUCO_WEBHOOK_ALLOW_HTTP e TRUCO_WEBHOOK_ALLOW_PRIVATE para que o receptor de teste funcione na rede do Compose. Isso DESLIGA a guarda de SSRF na pilha local. Esta documentado no README e no comando de fumaca, e e exatamente o tipo de default conveniente que vaza para producao.",
+    "O robo e ruim de proposito e nao e balanceado: ele quase sempre joga a menor carta que ganha, o que o torna previsivel. Quem joga contra robo nao esta sendo testado como jogador.",
+    "Reconexao religa o assento, mas o cliente nao tem reconexao automatica: se o WebSocket cai, a pagina mostra 'conexao caiu, recarregue'. Recarregar funciona e retoma a partida; nao recarregar nao.",
+    "Nenhum teste de carga, nenhuma medida de latencia, nenhuma metrica exportada. 'Estavel' aqui significa 'provei que funciona', nao 'medi que aguenta'.",
+    "Mesa de 2x2 emparelha por ordem de chegada na fila, entao nao existe convidar um amigo para ser seu parceiro. Com 4 humanos na fila, os assentos 0 e 1 (que sao adversarios) podem ser dois amigos que entraram juntos."
+  ],
+  "tempo_minutos": 77,
+  "nota_commit_final": "commit_final e o SHA do commit que carrega o estado verificado (codigo, testes, Docker e este arquivo com a prova). Como um arquivo nao pode conter o SHA do commit que o cria, o campo e preenchido no commit seguinte, que muda SO esta linha. Para reproduzir exatamente o que foi testado, use commit_final.",
+  "provas_resumo": {
+    "cargo_test": "37 passed; 0 failed (truco_core) + 9 passed; 0 failed (truco_server)",
+    "playwright": "18 passed (3.9m), zero flaky, stack recem-criada com volume limpo",
+    "fumaca": "13 ok, 0 falhou",
+    "ci": "GitHub Actions 'testes' — completed success em 1m39s (cargo test + clippy -D warnings + cargo fmt --check)",
+    "docker": "docker compose ps -> app Up (healthy); imagem final sem toolchain Rust, uid 10001, cap_drop ALL"
+  }
+}
