@@ -12,6 +12,6 @@ pub mod engine;
 
 pub use card::{Card, Rank, Suit, CARTA_DE_COSTAS};
 pub use engine::{
-    resultado_da_mao, time_do_assento, Acao, Erro, Evento, Fase, Jogada, Mao, Match, TipoMao,
-    ESCADA, PONTOS_MAO_DE_ONZE, PONTOS_PARA_VENCER,
+    resultado_da_mao, time_do_assento, Acao, Erro, Evento, Fase, Jogada, Mao, Match,
+    RodadaResolvida, TipoMao, ESCADA, PONTOS_MAO_DE_ONZE, PONTOS_PARA_VENCER,
 };

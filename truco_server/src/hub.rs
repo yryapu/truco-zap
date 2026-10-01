@@ -22,7 +22,9 @@ pub type ConnId = u64;
 /// Existe para que "começa a jogar em menos de um minuto" seja verdade com a casa vazia
 /// (decisão D15).
 pub const ESPERA_ATE_ROBO: Duration = Duration::from_secs(8);
-const PAUSA_ENTRE_MAOS: Duration = Duration::from_millis(1200);
+/// Pausa entre mãos. Precisa ser longa o suficiente para o jogador LER o resultado da última
+/// rodada e da mão antes de as cartas trocarem — foi curta demais na primeira versão.
+const PAUSA_ENTRE_MAOS: Duration = Duration::from_millis(2600);
 const PAUSA_DO_ROBO: Duration = Duration::from_millis(900);
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Deserialize)]
@@ -260,18 +262,25 @@ pub fn estado_view(mesa: &Mesa, assento: usize) -> Value {
         None
     };
 
-    let mesa_cartas: Vec<Value> = m
-        .mao
-        .jogadas
-        .iter()
-        .map(|j| {
-            json!({
-                "assento": j.assento,
-                "carta": j.carta.map(carta_str).unwrap_or_else(|| CARTA_DE_COSTAS.to_string()),
-                "encoberta": j.encoberta
-            })
+    let jogada_json = |j: &truco_core::Jogada| {
+        json!({
+            "assento": j.assento,
+            "carta": j.carta.map(carta_str).unwrap_or_else(|| CARTA_DE_COSTAS.to_string()),
+            "encoberta": j.encoberta
         })
-        .collect();
+    };
+    let mesa_cartas: Vec<Value> = m.mao.jogadas.iter().map(jogada_json).collect();
+
+    // A rodada que acabou de resolver continua no estado para o cliente poder mostrar quem
+    // ganhou de quem, em vez de a mesa esvaziar sozinha.
+    let rodada_anterior = m.mao.rodada_anterior.as_ref().map(|r| {
+        json!({
+            "indice": r.indice,
+            "vencedor": r.vencedor,
+            "assentos_vencedores": r.assentos_vencedores,
+            "jogadas": r.jogadas.iter().map(jogada_json).collect::<Vec<_>>(),
+        })
+    });
 
     let opcoes: Vec<&str> = match m.fase {
         Fase::AguardandoResposta { proposto, .. } if m.pode_agir(assento) => {
@@ -321,6 +330,7 @@ pub fn estado_view(mesa: &Mesa, assento: usize) -> Value {
         "numero_da_mao": m.numero_da_mao,
         "rodadas": m.mao.rodadas,
         "mesa": mesa_cartas,
+        "rodada_anterior": rodada_anterior,
         "minha_mao": minha_mao,
         "mao_do_parceiro": mao_do_parceiro,
         "fase": m.fase,

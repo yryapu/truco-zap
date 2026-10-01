@@ -1457,3 +1457,162 @@ fn r16_d11_o_1x1_e_a_mesma_regra_com_time_de_um() {
         "ninguem decide na mao de ferro, nem no 1x1"
     );
 }
+
+#[test]
+fn a_rodada_resolvida_fica_visivel_com_o_vencedor_marcado() {
+    // Não é regra de truco: é requisito de produto. Sem isto o jogador nunca vê a carta do
+    // adversário ao lado da sua, porque a mesa esvazia no instante em que a rodada resolve.
+    let mut m = mesa(2);
+    let vira = Card::new(Rank::Quatro, Suit::Ouros); // manilha = 5
+    montar(
+        &mut m,
+        vira,
+        &[
+            [
+                Card::new(Rank::Tres, Suit::Paus),
+                Card::new(Rank::Dois, Suit::Paus),
+                Card::new(Rank::Sete, Suit::Paus),
+            ],
+            [
+                Card::new(Rank::Seis, Suit::Ouros),
+                Card::new(Rank::Dois, Suit::Ouros),
+                Card::new(Rank::Sete, Suit::Ouros),
+            ],
+        ],
+    );
+    assert!(
+        m.mao.rodada_anterior.is_none(),
+        "mao nova nao tem rodada anterior"
+    );
+
+    m.aplicar(
+        0,
+        Acao::Jogar {
+            carta: Card::new(Rank::Tres, Suit::Paus),
+            encoberta: false,
+        },
+    )
+    .unwrap();
+    assert_eq!(
+        m.mao.jogadas.len(),
+        1,
+        "rodada em andamento mostra a carta ja jogada"
+    );
+    m.aplicar(
+        1,
+        Acao::Jogar {
+            carta: Card::new(Rank::Seis, Suit::Ouros),
+            encoberta: false,
+        },
+    )
+    .unwrap();
+
+    let r = m
+        .mao
+        .rodada_anterior
+        .as_ref()
+        .expect("a rodada resolvida tem de ficar guardada");
+    assert_eq!(r.indice, 0);
+    assert_eq!(r.jogadas.len(), 2, "as DUAS cartas continuam visiveis");
+    assert_eq!(r.vencedor, Some(0), "3 ganha de 6 quando a manilha e 5");
+    assert_eq!(r.assentos_vencedores, vec![0], "da para marcar QUEM levou");
+    assert!(m.mao.jogadas.is_empty(), "a rodada corrente comeca vazia");
+
+    // Rodada 2 substitui a guardada; a mão nova zera.
+    m.aplicar(
+        0,
+        Acao::Jogar {
+            carta: Card::new(Rank::Dois, Suit::Paus),
+            encoberta: false,
+        },
+    )
+    .unwrap();
+    m.aplicar(
+        1,
+        Acao::Jogar {
+            carta: Card::new(Rank::Dois, Suit::Ouros),
+            encoberta: false,
+        },
+    )
+    .unwrap();
+    let r = m.mao.rodada_anterior.as_ref().unwrap();
+    assert_eq!(r.indice, 1);
+    assert_eq!(r.vencedor, None, "2 contra 2 empata");
+    assert_eq!(
+        r.assentos_vencedores.len(),
+        2,
+        "num empate, os dois assentos do topo"
+    );
+    m.nova_mao(&mut StdRng::seed_from_u64(1));
+    assert!(
+        m.mao.rodada_anterior.is_none(),
+        "mao nova zera a rodada anterior"
+    );
+}
+
+#[test]
+fn carta_encoberta_continua_secreta_depois_da_rodada_resolver() {
+    let mut m = mesa(2);
+    let vira = Card::new(Rank::Quatro, Suit::Ouros);
+    montar(
+        &mut m,
+        vira,
+        &[
+            [
+                Card::new(Rank::Tres, Suit::Paus),
+                Card::new(Rank::Dois, Suit::Paus),
+                Card::new(Rank::Sete, Suit::Paus),
+            ],
+            [
+                Card::new(Rank::Seis, Suit::Ouros),
+                Card::new(Rank::Dois, Suit::Ouros),
+                Card::new(Rank::Sete, Suit::Ouros),
+            ],
+        ],
+    );
+    m.aplicar(
+        0,
+        Acao::Jogar {
+            carta: Card::new(Rank::Tres, Suit::Paus),
+            encoberta: false,
+        },
+    )
+    .unwrap();
+    m.aplicar(
+        1,
+        Acao::Jogar {
+            carta: Card::new(Rank::Seis, Suit::Ouros),
+            encoberta: false,
+        },
+    )
+    .unwrap();
+    // Rodada 2: o assento 0 joga encoberto.
+    let a = m.mao.vez;
+    m.aplicar(
+        a,
+        Acao::Jogar {
+            carta: m.mao.cartas[a][0],
+            encoberta: true,
+        },
+    )
+    .unwrap();
+    let b = m.mao.vez;
+    m.aplicar(
+        b,
+        Acao::Jogar {
+            carta: m.mao.cartas[b][0],
+            encoberta: false,
+        },
+    )
+    .unwrap();
+    let r = m.mao.rodada_anterior.as_ref().unwrap();
+    let encoberta = r
+        .jogadas
+        .iter()
+        .find(|j| j.encoberta)
+        .expect("tem uma encoberta");
+    assert_eq!(
+        encoberta.carta, None,
+        "encoberta nao e revelada nem depois de resolver"
+    );
+}

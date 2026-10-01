@@ -13,7 +13,7 @@ export async function entrarComoConvidado(page) {
 
 export async function cadastrar(page, apelido, senha = 'segredo123') {
   await page.goto('/');
-  await page.getByText('tenho / quero uma conta').click();
+  await page.getByText('Já tenho conta').click();
   await page.getByTestId('campo-apelido').fill(apelido);
   await page.getByTestId('campo-senha').fill(senha);
   await page.getByTestId('btn-cadastrar').click();

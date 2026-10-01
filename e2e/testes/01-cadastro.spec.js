@@ -27,7 +27,7 @@ test('conta com apelido e senha: cadastra, sai e volta', async ({ page }) => {
   await expect(page.getByTestId('perfil-apelido')).toHaveText(apelido);
   await page.getByTestId('btn-sair').click();
   await expect(page.getByTestId('btn-convidado')).toBeVisible();
-  await page.getByText('tenho / quero uma conta').click();
+  await page.getByText('Já tenho conta').click();
   await page.getByTestId('campo-apelido').fill(apelido);
   await page.getByTestId('campo-senha').fill('segredo123');
   await page.getByTestId('btn-entrar').click();
@@ -38,12 +38,12 @@ test('apelido repetido e senha errada são recusados com mensagem', async ({ pag
   const apelido = `Dino${Date.now() % 100000}`;
   await cadastrar(page, apelido);
   await page.getByTestId('btn-sair').click();
-  await page.getByText('tenho / quero uma conta').click();
+  await page.getByText('Já tenho conta').click();
   await page.getByTestId('campo-apelido').fill(apelido);
   await page.getByTestId('campo-senha').fill('segredo123');
   await page.getByTestId('btn-cadastrar').click();
   await expect(page.getByTestId('erro-entrada')).toHaveText(/apelido já existe/);
   await page.getByTestId('campo-senha').fill('senhaerrada');
   await page.getByTestId('btn-entrar').click();
-  await expect(page.getByTestId('erro-entrada')).toHaveText(/apelido ou senha errados/);
+  await expect(page.getByTestId('erro-entrada')).toHaveText(/não conferem/);
 });

@@ -1,126 +1,585 @@
+/* truco-zap — a mesa do boteco.
+   Nada de feltro verde: feltro verde é cassino. Truco é mesa de bar sob uma lâmpada,
+   com o placar contado em sementes de olho-de-cabra, que é como a fonte citada descreve
+   ("It is traditional to score using ormosia seeds (tentos)"). */
+
 :root {
-  --feltro: #11543a;
-  --feltro-claro: #17684a;
-  --madeira: #3b2415;
-  --papel: #f4ecd8;
-  --tinta: #1d1a16;
-  --ouro: #d8a227;
-  --vermelho: #b3261e;
-  --borda: #2a2520;
+  /* o bar depois das onze */
+  --noite:      #140c09;
+  --noite-alta: #22150e;
+  /* toalha xadrez vermelha, desbotada de lavagem */
+  --cloth:      #7d1f1a;
+  --cloth-funda:#5c1511;
+  /* filamento incandescente */
+  --lampada:    #ffc35c;
+  --lampada-q:  #ff9e2c;
+  /* olho-de-cabra: escarlate com o olho preto */
+  --semente:    #d12a1f;
+  /* a carta e o cardápio a giz */
+  --papel:      #f7f1e3;
+  --tinta:      #1c120c;
+  --carta-vermelha: #b02b22;
+  --giz:        #efe6d4;
+  --giz-fosco:  rgba(239, 230, 212, .60);
+  --giz-tenue:  rgba(239, 230, 212, .28);
+  --lousa:      #1b2420;
+
+  /* escala de tipo: 1rem base, razão ~1.25 */
+  --t-xs:  .78rem;
+  --t-sm:  .875rem;
+  --t-md:  1rem;
+  --t-lg:  1.22rem;
+  --t-xl:  1.55rem;
+
+  --raio:  10px;
+  --prosa: 60ch;
 }
+
 * { box-sizing: border-box; }
+
+/* O atributo `hidden` tem de ganhar de qualquer `display` que eu declare depois. Sem isto,
+   `.lobby { display: grid }` vence a regra do navegador para [hidden] e a tela "escondida"
+   aparece — meia interface sobreposta, e os testes que usam toBeHidden passam a mentir. */
+[hidden] { display: none !important; }
+html { -webkit-text-size-adjust: 100%; }
+
 body {
-  margin: 0; font: 16px/1.5 ui-sans-serif, system-ui, "Segoe UI", Roboto, sans-serif;
-  background: var(--madeira)
-    radial-gradient(circle at 50% 0%, #4b3220 0%, #2a1a0f 70%);
-  color: var(--papel); min-height: 100vh;
+  margin: 0;
+  min-height: 100dvh;
+  font: var(--t-md)/1.55 Archivo, "Noto Sans Symbols 2", system-ui, -apple-system,
+        "Segoe UI Symbol", "Apple Symbols", "DejaVu Sans", sans-serif;
+  color: var(--giz);
+  background: var(--noite);
+  overflow-x: hidden;
 }
+
+/* a lâmpada: um bulbo pendurado e o halo que ele joga na página */
+.lampada {
+  position: fixed; inset: 0 0 auto 0; height: 60vh; pointer-events: none; z-index: 0;
+  background:
+    radial-gradient(ellipse 60% 50% at 50% -6%, rgba(255, 195, 92, .20), transparent 68%),
+    radial-gradient(ellipse 110% 70% at 50% -20%, rgba(255, 158, 44, .10), transparent 70%);
+}
+.lampada .bulbo {
+  position: absolute; left: 50%; top: 0; width: 2px; height: 46px;
+  background: linear-gradient(var(--giz-tenue), transparent);
+}
+.lampada .bulbo::after {
+  content: ""; position: absolute; left: -7px; top: 44px; width: 16px; height: 20px;
+  border-radius: 50% 50% 46% 46%;
+  background: radial-gradient(circle at 50% 35%, #fff6df, var(--lampada-q) 70%);
+  box-shadow: 0 0 26px 10px rgba(255, 195, 92, .35);
+}
+
+/* ── cabeçalho ───────────────────────────────────────────────────────── */
 header {
-  display: flex; align-items: center; justify-content: space-between; gap: 1rem;
-  padding: .75rem 1rem; background: #00000055; border-bottom: 1px solid #0006;
-  position: sticky; top: 0; z-index: 10; flex-wrap: wrap;
+  position: relative; z-index: 2;
+  display: flex; align-items: baseline; justify-content: space-between; gap: 1rem;
+  flex-wrap: wrap; padding: 1rem clamp(1rem, 4vw, 2rem) .5rem;
 }
-h1 { margin: 0; font-size: 1.4rem; letter-spacing: .04em; }
-.zap { color: var(--ouro); }
-#barra-perfil { display: flex; align-items: center; gap: .9rem; flex-wrap: wrap; }
-.moedas b { color: var(--ouro); }
-main { max-width: 820px; margin: 1rem auto; padding: 0 1rem; }
-.cartao {
-  background: #00000040; border: 1px solid #0007; border-radius: 10px;
-  padding: 1rem; margin-bottom: 1rem;
+.marca {
+  font-family: "Alfa Slab One", Georgia, serif; font-size: var(--t-xl);
+  color: var(--lampada); text-decoration: none; letter-spacing: -.01em; line-height: 1;
 }
-h2 { margin: 0 0 .6rem; font-size: 1rem; text-transform: uppercase;
-     letter-spacing: .1em; color: #e8dcc0aa; }
-label { display: block; margin: .5rem 0; }
-input, select {
-  font: inherit; padding: .45rem .6rem; border-radius: 6px; border: 1px solid #0008;
-  background: var(--papel); color: var(--tinta); width: 100%; max-width: 320px;
+.pocket { display: flex; align-items: center; gap: .9rem; font-size: var(--t-sm); }
+.quem { font-weight: 600; }
+.moedas { display: inline-flex; align-items: center; gap: .35rem; color: var(--lampada); font-weight: 600; }
+.ficha {
+  width: 13px; height: 13px; border-radius: 50%;
+  background: radial-gradient(circle at 34% 30%, #ffe6a8, #c98a1c 72%);
+  box-shadow: inset 0 -1px 2px rgba(0,0,0,.45);
 }
-button {
-  font: inherit; cursor: pointer; padding: .5rem .9rem; border-radius: 6px;
-  border: 1px solid #0007; background: var(--feltro-claro); color: var(--papel);
-}
-button:hover:not(:disabled) { background: #1d7a56; }
-button:disabled { opacity: .4; cursor: not-allowed; }
-button.grande { display: block; width: 100%; max-width: 320px; padding: .7rem;
-                font-size: 1.05rem; background: var(--ouro); color: #2a1a0f;
-                border-color: #00000055; font-weight: 600; margin-top: .6rem; }
-button.grande:hover:not(:disabled) { background: #e8b53b; }
-button.fantasma { background: transparent; border-color: #ffffff33; }
-button.modo.escolhido { background: var(--ouro); color: #2a1a0f; font-weight: 600; }
-.linha { display: flex; gap: .5rem; flex-wrap: wrap; }
-.chamada { margin-top: 0; }
-.discreto { color: #e8dcc099; font-size: .88rem; }
-.erro { color: #ff9a92; min-height: 1.2em; margin: .4rem 0 0; }
-.segredo { font-family: ui-monospace, monospace; word-break: break-all; color: var(--ouro); }
-details { margin-top: 1rem; }
-summary { cursor: pointer; color: #e8dcc0cc; }
-footer { text-align: center; padding: 2rem 1rem; color: #e8dcc077; font-size: .85rem; }
-footer a { color: #e8dcc0aa; }
-table { width: 100%; border-collapse: collapse; font-size: .92rem; }
-td { padding: .3rem .4rem; border-bottom: 1px solid #ffffff14; }
-td:first-child { color: #e8dcc099; width: 2.2rem; }
-.emblemas { display: flex; gap: .5rem; flex-wrap: wrap; }
-.emblema {
-  display: flex; align-items: center; gap: .4rem; padding: .35rem .6rem;
-  background: #00000055; border: 1px solid var(--ouro); border-radius: 999px; font-size: .85rem;
-}
-.emblema .ic { font-size: 1.1rem; }
+.vd { color: var(--giz-fosco); font-variant-numeric: tabular-nums; }
 
-/* mesa */
-.placar-barra {
-  display: flex; align-items: center; justify-content: space-between;
-  background: #00000055; border-radius: 10px; padding: .6rem 1rem; margin-bottom: .6rem;
+/* ── botões ──────────────────────────────────────────────────────────── */
+button { font: inherit; cursor: pointer; border: 0; border-radius: 8px; }
+button:focus-visible, input:focus-visible, summary:focus-visible, a:focus-visible {
+  outline: 2px solid var(--lampada); outline-offset: 3px;
 }
-.placar { text-align: center; }
-.placar b { display: block; font-size: 1.9rem; color: var(--ouro); line-height: 1; }
-.rot { font-size: .75rem; text-transform: uppercase; letter-spacing: .1em; color: #e8dcc099; }
-.meio { text-align: center; }
-.meio b { color: var(--ouro); }
-.vira-faixa {
-  display: flex; align-items: center; gap: .7rem; flex-wrap: wrap;
-  font-size: .9rem; color: #e8dcc0cc; margin-bottom: .6rem;
+
+/* pintado à mão, como placa de boteco */
+.pintado {
+  display: block; width: 100%; max-width: 20rem; margin-inline: auto;
+  padding: .8rem 1.4rem;
+  font-size: var(--t-lg); font-weight: 800; letter-spacing: -.01em;
+  color: #2b1405;
+  background: linear-gradient(180deg, var(--lampada) 0%, var(--lampada-q) 100%);
+  box-shadow: 0 3px 0 #a8641a, 0 7px 16px rgba(0,0,0,.4);
+  transition: transform .08s, box-shadow .08s;
 }
-.aviso { color: var(--ouro); font-weight: 600; }
-.tapete {
-  background: var(--feltro) radial-gradient(ellipse at center, var(--feltro-claro), var(--feltro) 70%);
-  border: 6px solid #0004; border-radius: 14px; padding: 1rem; min-height: 190px;
-  display: flex; flex-direction: column; gap: .8rem; align-items: center;
-  box-shadow: inset 0 0 40px #0006;
+.pintado:hover { filter: brightness(1.06); }
+.pintado:active { transform: translateY(3px); box-shadow: 0 0 0 #a8641a, 0 3px 8px rgba(0,0,0,.4); }
+.pintado.curto { max-width: none; width: auto; font-size: var(--t-md); padding: .6rem 1.2rem; }
+
+.liso {
+  padding: .45rem .85rem; font-size: var(--t-sm); color: var(--giz);
+  background: transparent; border: 1px solid var(--giz-tenue);
 }
-.jogadores { display: flex; gap: .6rem; flex-wrap: wrap; justify-content: center; font-size: .85rem; }
-.jogadores .j { padding: .25rem .55rem; border-radius: 999px; background: #0003; border: 1px solid #0004; }
-.jogadores .j.vez { border-color: var(--ouro); color: var(--ouro); }
-.jogadores .j.eu { background: #0006; font-weight: 600; }
-.jogadores .j.off { opacity: .55; text-decoration: line-through; }
-.cartas-na-mesa { display: flex; gap: .5rem; flex-wrap: wrap; justify-content: center; min-height: 72px; align-items: center; }
-.rodadas { display: flex; gap: .4rem; font-size: .8rem; color: #ffffffaa; }
-.rodadas span { padding: .1rem .5rem; border-radius: 999px; background: #0004; }
+.liso:hover { background: rgba(239,230,212,.08); border-color: var(--giz-fosco); }
+
+/* ── a carta ─────────────────────────────────────────────────────────── */
 .carta {
-  font-size: 4rem; line-height: 1; background: var(--papel); color: var(--tinta);
-  border-radius: 8px; padding: 0 .06em; border: 1px solid #0006;
-  box-shadow: 0 2px 6px #0005; user-select: none;
+  /* O glifo do bloco Playing Cards desenha a carta em CONTORNO: a face é transparente.
+     Então o corpo creme da carta vem de um ::before encaixado no desenho, e não de uma caixa
+     maior por trás — que era a moldura dupla da primeira versão.
+
+     As medidas abaixo não são chute. Medi o glifo em canvas (e2e/medir.mjs, Noto Sans
+     Symbols 2): avanço 0.675em, desenho 0.575em × 0.765em, com 0.05em de folga de cada lado.
+     A caixa é o avanço, e o ::before é exatamente o desenho. */
+  position: relative;
+  isolation: isolate;          /* para o ::before em z-index -1 não cair atrás do tapete */
+  display: inline-grid;
+  place-items: center;
+  width: .675em;
+  height: .80em;
+  line-height: 1;
+  font-family: "Noto Sans Symbols 2", "Segoe UI Symbol", "Apple Symbols", "DejaVu Sans", sans-serif;
+  font-size: clamp(4.2rem, 13vw, 6rem);
+  color: var(--tinta);
+  user-select: none;
 }
-.carta.vermelha { color: var(--vermelho); }
-.carta.pequena { font-size: 2.2rem; }
-.carta.costas { background: #24476b; color: #cfe0f5; }
-.carta.manilha { outline: 3px solid var(--ouro); outline-offset: 1px; }
-.minha-area { margin-top: 1rem; }
-.minha-mao { display: flex; gap: .6rem; flex-wrap: wrap; justify-content: center; min-height: 92px; }
-.minha-mao button.carta { cursor: pointer; transition: transform .1s; padding: 0 .06em; }
-.minha-mao button.carta:hover:not(:disabled) { transform: translateY(-10px); background: #fffaf0; }
-.minha-mao button.carta:disabled { opacity: .55; cursor: default; }
-.encoberta-opcao { text-align: center; font-size: .85rem; color: #e8dcc0bb; }
-.encoberta-opcao input { width: auto; }
-.acoes { display: flex; gap: .5rem; flex-wrap: wrap; justify-content: center; margin-top: .6rem; }
-.acoes button { background: var(--vermelho); border-color: #0006; font-weight: 600; }
-.acoes button:hover:not(:disabled) { background: #cf3b32; }
-.vez { text-align: center; color: var(--ouro); min-height: 1.4em; font-weight: 600; }
-.log { list-style: none; padding: 0; margin: 0; font-size: .86rem; max-height: 220px; overflow: auto; }
-.log li { padding: .2rem 0; border-bottom: 1px solid #ffffff10; color: #e8dcc0cc; }
-@media (max-width: 520px) {
-  .carta { font-size: 3rem; }
-  .carta.pequena { font-size: 1.8rem; }
+.carta::before {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  left: .05em; right: .05em; top: .018em; bottom: .018em;
+  border-radius: .05em;
+  background: linear-gradient(170deg, #fffdf6, var(--papel) 55%, #ebe2cd);
+  box-shadow: 0 .02em .02em rgba(0, 0, 0, .45), 0 .08em .14em rgba(0, 0, 0, .45);
+}
+.carta.vermelha { color: var(--carta-vermelha); }
+.carta.costas { color: #cfe0f5; }
+.carta.costas::before {
+  background: repeating-linear-gradient(45deg, #2d4e78 0 .055em, #22406a .055em .11em);
+}
+.carta.mini { font-size: clamp(2.6rem, 8vw, 3.2rem); }
+.carta.manilha::before {
+  box-shadow: 0 0 0 .035em var(--lampada), 0 0 .2em rgba(255, 195, 92, .8),
+              0 .08em .14em rgba(0, 0, 0, .45);
 }
 
-.atalhos button { padding: .3rem .6rem; font-size: .85rem; }
+/* ── entrada ─────────────────────────────────────────────────────────── */
+.entrada {
+  position: relative; z-index: 1;
+  max-width: 42rem; margin: 0 auto; padding: 1rem clamp(1rem, 5vw, 2rem) 2rem;
+  text-align: center;
+  /* A entrada é uma tela só; compor no centro em vez de deixar um vazio embaixo. */
+  min-height: calc(100dvh - 11rem);
+  display: flex; flex-direction: column; justify-content: center;
+}
+.entrada > * { flex: none; }
+.leque-manilhas {
+  display: flex; justify-content: center; align-items: flex-end;
+  gap: clamp(.1rem, 2vw, .7rem); margin: 0 0 clamp(.8rem, 3vw, 1.6rem);
+}
+.leque-manilhas .carta { font-size: clamp(4.6rem, 15vw, 6.4rem); }
+.leque-manilhas figure { margin: 0; display: grid; justify-items: center; gap: .9rem; }
+.leque-manilhas figcaption {
+  font-size: var(--t-xs); color: var(--giz-fosco); letter-spacing: .01em;
+}
+.leque-manilhas figure:nth-child(1) .carta { transform: rotate(-11deg) translateY(10px); }
+.leque-manilhas figure:nth-child(2) .carta { transform: rotate(-4deg) translateY(2px); }
+.leque-manilhas figure:nth-child(3) .carta { transform: rotate(4deg) translateY(2px); }
+.leque-manilhas figure:nth-child(4) .carta { transform: rotate(11deg) translateY(10px); }
+.leque-manilhas .zap .carta::before {
+  box-shadow: 0 0 0 .04em var(--lampada), 0 0 .3em rgba(255, 195, 92, .7),
+              0 .1em .2em rgba(0, 0, 0, .5);
+}
+.leque-manilhas .zap figcaption { color: var(--lampada); font-weight: 700; }
+
+.grito {
+  font-family: "Alfa Slab One", Georgia, serif;
+  font-size: clamp(3.6rem, 17vw, 7.5rem); line-height: .86; margin: 0;
+  color: var(--papel); letter-spacing: -.02em;
+  text-shadow: 0 2px 0 var(--cloth-funda), 0 10px 34px rgba(0,0,0,.6);
+}
+.lede {
+  max-width: var(--prosa); margin: .9rem auto 1.8rem;
+  font-size: var(--t-lg); color: var(--giz-fosco); text-wrap: pretty;
+}
+.miudo { font-size: var(--t-sm); color: var(--giz-fosco); max-width: var(--prosa); margin: .7rem auto 0; }
+.aviso-erro { min-height: 1.4em; margin: .8rem 0 0; color: #ff9d92; font-size: var(--t-sm); }
+
+.conta { margin-top: 2.5rem; border-top: 1px solid var(--giz-tenue); padding-top: 1rem; }
+.conta summary { cursor: pointer; color: var(--giz-fosco); font-size: var(--t-sm); list-style: none; }
+.conta summary::marker, .conta summary::-webkit-details-marker { display: none; }
+.conta summary::before { content: "+ "; color: var(--lampada); }
+.conta[open] summary::before { content: "− "; }
+.campos { max-width: 20rem; margin: 1rem auto 0; text-align: left; }
+.dupla { display: flex; gap: .6rem; align-items: center; margin-top: 1rem; }
+
+label { display: block; font-size: var(--t-sm); color: var(--giz-fosco); margin-bottom: .7rem; }
+input[type="text"], input[type="password"], input[type="number"], input:not([type]) {
+  display: block; width: 100%; margin-top: .3rem;
+  font: var(--t-md) Archivo, sans-serif; padding: .55rem .7rem;
+  color: var(--tinta); background: var(--papel);
+  border: 1px solid #00000033; border-radius: 6px;
+}
+input[type="number"] { font-variant-numeric: tabular-nums; font-weight: 600; max-width: 10rem; }
+
+/* ── lobby: papel = onde você age, lousa = o que você lê ─────────────── */
+.lobby {
+  position: relative; z-index: 1;
+  max-width: 56rem; margin: 0 auto; padding: .5rem clamp(1rem, 4vw, 2rem) 3rem;
+  display: grid; gap: 1.1rem; grid-template-columns: 1fr;
+}
+/* As áreas valem SÓ no layout de duas colunas. Declará-las fora dele deixava os painéis
+   empilhados no mesmo lugar no celular — e o de avisos cobria o botão de procurar mesa,
+   que foi como o Playwright achou isto (um print não teria mostrado). */
+@media (min-width: 46rem) {
+  .lobby {
+    grid-template-columns: 1.02fr .98fr;
+    grid-template-areas:
+      "mesa    ranking"
+      "repu    ranking"
+      "hist    avisos";
+    align-content: start;
+    align-items: start;
+  }
+  .lobby [data-area="mesa"]    { grid-area: mesa; }
+  .lobby [data-area="repu"]    { grid-area: repu; }
+  .lobby [data-area="ranking"] { grid-area: ranking; }
+  .lobby [data-area="hist"]    { grid-area: hist; }
+  .lobby [data-area="avisos"]  { grid-area: avisos; }
+}
+/* O ranking cresce sem limite e deixava a coluna da esquerda com meia tela vazia. */
+.lousa.alto { max-height: 24rem; overflow: auto; }
+.papel, .lousa { padding: 1.2rem clamp(1rem, 3vw, 1.5rem); border-radius: var(--raio); }
+.papel {
+  color: var(--tinta);
+  background: linear-gradient(172deg, #fffdf5, var(--papel) 60%, #ece2cc);
+  box-shadow: 0 10px 26px rgba(0,0,0,.45);
+}
+.papel h2 { color: #6b4a22; }
+.papel .miudo { color: #5d4a35; margin-left: 0; }
+.papel label { color: #6b5637; }
+.lousa {
+  background:
+    radial-gradient(ellipse at 20% 0%, rgba(255,255,255,.05), transparent 60%),
+    var(--lousa);
+  border: 1px solid rgba(255,255,255,.07);
+  box-shadow: inset 0 0 40px rgba(0,0,0,.5);
+}
+h2 {
+  margin: 0 0 .8rem; font-size: var(--t-md); font-weight: 700; letter-spacing: -.01em;
+  color: var(--giz);
+}
+.lousa h2 { color: var(--giz-fosco); font-weight: 500; }
+
+.modos { display: grid; grid-template-columns: 1fr 1fr; gap: .6rem; margin-bottom: 1.1rem; }
+.modo {
+  display: grid; gap: .1rem; padding: .7rem .6rem; text-align: left;
+  color: var(--tinta); background: #0000000d; border: 2px solid #00000022;
+}
+.modo b { font-size: var(--t-lg); }
+.modo small { font-size: var(--t-xs); color: #6b5637; line-height: 1.3; }
+.modo.escolhido {
+  background: #2b1405; border-color: #2b1405; color: var(--lampada);
+}
+.modo.escolhido small { color: #e6cfa4; }
+.aposta { font-weight: 600; }
+.atalhos { display: flex; gap: .4rem; flex-wrap: wrap; margin: -.3rem 0 1.2rem; }
+.papel .liso { color: #5d4a35; border-color: #00000033; }
+.papel .liso:hover { background: #00000010; border-color: #00000055; color: var(--tinta); }
+.atalhos .liso { padding: .3rem .6rem; font-size: var(--t-xs); }
+.papel .pintado { margin-inline: 0; }
+.papel [role="status"] { color: #6b4a22; }
+
+.emblemas { display: flex; flex-wrap: wrap; gap: .5rem; }
+.emblema {
+  display: inline-flex; align-items: center; gap: .45rem;
+  padding: .35rem .7rem .35rem .45rem; border-radius: 999px;
+  background: #2b1405; color: var(--lampada); font-size: var(--t-xs); font-weight: 600;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.14);
+}
+.emblema .ic { font-size: var(--t-md); line-height: 1; }
+.emblema .pq { color: #e6cfa4; font-weight: 400; }
+
+.placar-geral { width: 100%; border-collapse: collapse; font-size: var(--t-sm); }
+.placar-geral td { padding: .4rem .3rem; border-bottom: 1px solid rgba(255,255,255,.07); }
+.placar-geral tr:last-child td { border-bottom: 0; }
+.placar-geral .pos { width: 1.8rem; color: var(--giz-tenue); font-variant-numeric: tabular-nums; }
+.placar-geral .num { text-align: right; font-variant-numeric: tabular-nums; color: var(--giz-fosco); }
+.placar-geral .moedas-col { color: var(--lampada); opacity: .85; width: 4.5rem; }
+.placar-geral .eu-mesmo td { color: var(--lampada); }
+.placar-geral .vazio td { color: var(--giz-tenue); font-style: italic; }
+.ganhou { color: #8fd49a; }
+.perdeu { color: #e49a92; }
+
+.recibo { font-size: var(--t-sm); }
+.recibo label { margin-top: 1rem; font-weight: 600; }
+.recibo .miudo { margin-bottom: 0; }
+.recibo code {
+  font-family: ui-monospace, monospace; font-size: .9em;
+  background: #00000012; padding: .05em .3em; border-radius: 3px;
+}
+.segredo {
+  font-family: ui-monospace, monospace; font-size: var(--t-xs);
+  color: #7a4a10; word-break: break-all; margin: .6rem 0 0;
+}
+.lista-webhooks { list-style: none; padding: 0; margin: .8rem 0 0; display: grid; gap: .4rem; }
+.lista-webhooks li {
+  display: flex; align-items: center; justify-content: space-between; gap: .6rem;
+  font-size: var(--t-xs); color: #5d4a35; border-top: 1px dashed #00000026; padding-top: .4rem;
+}
+.lista-webhooks .url { word-break: break-all; }
+
+/* ── mesa ────────────────────────────────────────────────────────────── */
+.mesa {
+  position: relative; z-index: 1;
+  max-width: 52rem; margin: 0 auto; padding: .25rem clamp(.6rem, 3vw, 1.5rem) 2rem;
+  display: grid; gap: .5rem;
+}
+
+/* a cuia de tentos: 12 sementes de olho-de-cabra */
+.cuia {
+  display: flex; align-items: center; gap: .7rem;
+  padding: .45rem .8rem; border-radius: 999px;
+  background: linear-gradient(180deg, #00000055, #00000022);
+  border: 1px solid rgba(255,255,255,.06);
+}
+.cuia .lado {
+  font-size: var(--t-xs); color: var(--giz-fosco); min-width: 2.2rem; font-weight: 600;
+}
+.cuia.nos .lado { color: var(--lampada); }
+.cuia b {
+  margin-left: auto; font-family: "Alfa Slab One", Georgia, serif;
+  font-size: var(--t-xl); line-height: 1; color: var(--giz); font-variant-numeric: tabular-nums;
+}
+.cuia.nos b { color: var(--lampada); }
+.sementes { display: flex; gap: clamp(2px, .8vw, 5px); flex: 1; }
+.sementes i {
+  flex: 1; max-width: 15px; aspect-ratio: 1; border-radius: 50%;
+  background: #000000aa; box-shadow: inset 0 1px 2px rgba(0,0,0,.9), 0 0 0 1px rgba(255,255,255,.07);
+}
+.sementes i.cheia {
+  background:
+    radial-gradient(circle at 62% 62%, #140c09 0 20%, transparent 21%),
+    radial-gradient(circle at 34% 28%, #f2655a, var(--semente) 62%, #8e1a12);
+  box-shadow: 0 1px 2px rgba(0,0,0,.6);
+}
+
+/* o tapete: toalha xadrez desbotada, com a poça de luz da lâmpada */
+.tapete {
+  position: relative; overflow: hidden;
+  border-radius: 14px; padding: .9rem clamp(.6rem, 3vw, 1.3rem) 1rem;
+  background-color: var(--cloth-funda);
+  background-image:
+    repeating-linear-gradient(0deg,  rgba(0,0,0,.28) 0 34px, transparent 34px 68px),
+    repeating-linear-gradient(90deg, rgba(0,0,0,.28) 0 34px, transparent 34px 68px);
+  box-shadow: inset 0 0 90px rgba(0,0,0,.72), 0 14px 34px rgba(0,0,0,.5);
+  display: grid; gap: .8rem;
+}
+.tapete .luz {
+  position: absolute; inset: 0; pointer-events: none;
+  background: radial-gradient(ellipse 66% 52% at 50% 8%, rgba(255,205,120,.17), transparent 72%);
+}
+.tapete > :not(.luz) { position: relative; }
+
+.cabecalho-mao {
+  display: flex; align-items: center; gap: clamp(.7rem, 3vw, 1.4rem); flex-wrap: wrap;
+}
+.rotulo { display: block; font-size: var(--t-xs); color: rgba(255,255,255,.55); line-height: 1.2; }
+.vira-bloco { display: flex; align-items: center; gap: .45rem; }
+
+.manilha-bloco b, .valor-bloco b {
+  font-family: "Alfa Slab One", Georgia, serif; font-size: var(--t-lg); line-height: 1.1;
+  color: var(--lampada);
+}
+.selo-mao {
+  margin: 0 0 0 auto; padding: .25rem .6rem; border-radius: 5px;
+  font-size: var(--t-xs); font-weight: 700; letter-spacing: .01em;
+  color: #2b1405; background: var(--lampada); transform: rotate(-1.5deg);
+}
+
+.jogadores { display: flex; gap: .45rem; flex-wrap: wrap; justify-content: center; }
+.j {
+  display: flex; align-items: center; gap: .35rem;
+  padding: .22rem .55rem; border-radius: 999px; font-size: var(--t-xs); line-height: 1.5;
+  background: rgba(0,0,0,.42); border: 1px solid transparent; color: var(--giz);
+}
+.j .nome { font-weight: 600; }
+.j .lado-j { color: rgba(255,255,255,.52); }
+.j.eles .lado-j { color: #ffb0a6; }
+.j.vez { border-color: var(--lampada); color: var(--lampada); box-shadow: 0 0 14px rgba(255,195,92,.3); }
+.j.eu { background: rgba(0,0,0,.6); }
+.j.off { opacity: .5; }
+.j .dorsos {
+  font-family: "Noto Sans Symbols 2", "Segoe UI Symbol", "DejaVu Sans", sans-serif;
+  font-size: 1.15em; line-height: 1; letter-spacing: -.44em; padding-right: .44em;
+  color: #7f9dc4; opacity: .9;
+}
+
+/* a rodada em curso e a que acabou de resolver, lado a lado */
+.cartas-na-mesa {
+  display: flex; flex-wrap: wrap; gap: clamp(.7rem, 3vw, 1.6rem);
+  justify-content: center; align-items: flex-start; min-height: 7rem;
+}
+.na-mesa { display: grid; justify-items: center; gap: .3rem; }
+.na-mesa .de-quem { font-size: var(--t-xs); color: rgba(255,255,255,.7); }
+.na-mesa.perdeu-rodada { opacity: .38; }
+.na-mesa.levou .carta { transform: translateY(-5px) scale(1.05); }
+.na-mesa .carta { transition: transform .18s ease-out; }
+.na-mesa .levou-tag {
+  font-size: var(--t-xs); font-weight: 700; color: var(--lampada);
+}
+.bloco-anterior {
+  display: grid; gap: .35rem; justify-items: center;
+  padding: .5rem .8rem .6rem; border-radius: 10px;
+  background: rgba(0,0,0,.34); border: 1px dashed rgba(255,255,255,.16);
+}
+.bloco-anterior .titulo-anterior {
+  font-size: var(--t-xs); color: rgba(255,255,255,.55);
+}
+.bloco-anterior .cartas-anteriores { display: flex; gap: .5rem; align-items: flex-start; }
+.bloco-anterior .carta { font-size: clamp(2.6rem, 8vw, 3.4rem); }
+.bloco-atual { display: flex; gap: clamp(.5rem, 2.5vw, 1.1rem); min-height: 6.4rem; align-items: flex-start; }
+
+.rodadas { display: flex; gap: .4rem; justify-content: center; }
+.rodadas .marca {
+  display: grid; justify-items: center; gap: .15rem;
+  min-width: 3.6rem; padding: .25rem .4rem; border-radius: 6px;
+  font-size: var(--t-xs); background: rgba(0,0,0,.3); color: rgba(255,255,255,.5);
+}
+.rodadas .marca .n { font-weight: 700; }
+.rodadas .marca.nossa { background: rgba(255,195,92,.18); color: var(--lampada); }
+.rodadas .marca.deles { background: rgba(0,0,0,.5); color: #ffb0a6; }
+.rodadas .marca.empate { color: var(--giz-fosco); }
+
+.aposta-mesa {
+  display: flex; justify-content: center; gap: .9rem; flex-wrap: wrap;
+  margin: 0; font-size: var(--t-xs); color: rgba(255,255,255,.55);
+}
+.bolo-tag b { color: var(--lampada); }
+
+/* a sua mão, em leque */
+.minha-area { display: grid; gap: .4rem; justify-items: center; margin-top: .2rem; }
+.vez {
+  margin: 0; min-height: 1.5em; font-size: var(--t-md); font-weight: 700; color: var(--lampada);
+  text-align: center;
+}
+.vez.esperando { color: var(--giz-fosco); font-weight: 500; }
+.minha-mao {
+  display: flex; justify-content: center; align-items: flex-end;
+  gap: clamp(.1rem, 1vw, .4rem); min-height: 7.2rem; padding: .6rem 0 .5rem;
+}
+.minha-mao .carta {
+  font-size: clamp(5.4rem, 17vw, 7.4rem);
+  transform: rotate(var(--rot, 0deg)) translateY(var(--sobe, 0px));
+  transition: transform .14s ease-out;
+}
+.minha-mao button.carta { cursor: pointer; padding: 0; }
+.minha-mao button.carta { background: none; border: 0; }
+.minha-mao button.carta:hover:not(:disabled),
+.minha-mao button.carta:focus-visible:not(:disabled) {
+  transform: rotate(0deg) translateY(-16px) scale(1.04);
+  z-index: 2;
+}
+.minha-mao button.carta:hover:not(:disabled)::before,
+.minha-mao button.carta:focus-visible:not(:disabled)::before {
+  box-shadow: 0 0 0 .035em var(--lampada), 0 .18em .26em rgba(0, 0, 0, .6);
+}
+
+/* Fora da sua vez a carta recua, sem virar cinza: ela continua legível para você planejar. */
+.minha-mao button.carta:disabled { cursor: default; opacity: .72; }
+.mao-parceiro {
+  display: flex; align-items: center; gap: .4rem; font-size: var(--t-xs); color: var(--giz-fosco);
+}
+
+.encoberta-opcao {
+  display: inline-flex; align-items: center; gap: .45rem; margin: 0;
+  font-size: var(--t-xs); color: var(--giz-fosco);
+}
+.encoberta-opcao input { width: auto; margin: 0; }
+
+/* As cartas do leque usam `transform`, o que cria contexto de empilhamento: elas passam a
+   pintar na camada de posicionados, ACIMA do conteúdo de fluxo normal que vem depois delas.
+   Sem este z-index, a carta da ponta cobre o botão de truco e engole o clique — o Playwright
+   reportou "intercepts pointer events" e o teste ficou 3 minutos tentando clicar. */
+.acoes, .encoberta-opcao, .vez {
+  position: relative; z-index: 5;
+}
+.acoes { display: flex; gap: .5rem; flex-wrap: wrap; justify-content: center; min-height: 2.6rem; }
+.acoes button {
+  padding: .6rem 1.1rem; font-size: var(--t-md); font-weight: 800; color: var(--papel);
+  box-shadow: 0 3px 0 rgba(0,0,0,.45), 0 6px 14px rgba(0,0,0,.4);
+}
+.acoes button:active { transform: translateY(3px); box-shadow: 0 0 0 rgba(0,0,0,.45); }
+.acoes .pedir   { background: linear-gradient(180deg, #d4342a, #a3221a); }
+.acoes .aceitar { background: linear-gradient(180deg, #2f7d4f, #1f5a38); }
+.acoes .correr  { background: transparent; color: var(--giz-fosco);
+                  border: 1px solid var(--giz-tenue); box-shadow: none; font-weight: 600; }
+.acoes .correr:hover { color: var(--giz); border-color: var(--giz-fosco); }
+
+.fala { max-height: 11rem; overflow: auto; }
+.fala ul { list-style: none; margin: 0; padding: 0; font-size: var(--t-sm); }
+.fala li { padding: .22rem 0; border-bottom: 1px solid rgba(255,255,255,.06); color: var(--giz-fosco); }
+.fala li:first-child { color: var(--giz); }
+.fala li b { color: var(--lampada); font-weight: 700; }
+
+/* fim de partida */
+.fim-overlay {
+  position: fixed; inset: 0; z-index: 30; display: grid; place-items: center;
+  background: rgba(10, 6, 4, .78); padding: 1.5rem;
+}
+.fim-painel {
+  max-width: 24rem; text-align: center; padding: 1.8rem 1.5rem;
+  border-radius: var(--raio); color: var(--tinta);
+  background: linear-gradient(172deg, #fffdf5, var(--papel) 60%, #ece2cc);
+  box-shadow: 0 24px 60px rgba(0,0,0,.6);
+}
+.fim-painel h2 {
+  font-family: "Alfa Slab One", Georgia, serif; font-size: var(--t-xl);
+  color: #2b1405; margin-bottom: .4rem;
+}
+.fim-painel .miudo { color: #5d4a35; }
+.fim-painel .pintado { margin-top: 1.2rem; }
+
+/* o grito: um momento, não um efeito espalhado */
+.grito-overlay {
+  position: fixed; inset: 0; z-index: 40; display: grid; place-items: center;
+  pointer-events: none; opacity: 0;
+}
+.grito-overlay span {
+  font-family: "Alfa Slab One", Georgia, serif;
+  font-size: clamp(3.5rem, 19vw, 11rem); line-height: .9; color: var(--papel);
+  text-shadow: 0 4px 0 var(--cloth-funda), 0 0 60px rgba(255,195,92,.55);
+  transform: rotate(-4deg);
+}
+.grito-overlay.bate { animation: bate .95s ease-out forwards; }
+@keyframes bate {
+  0%   { opacity: 0; transform: scale(.55); }
+  14%  { opacity: 1; transform: scale(1.1); }
+  26%  { transform: scale(1); }
+  72%  { opacity: 1; }
+  100% { opacity: 0; transform: scale(1.03); }
+}
+
+footer {
+  position: relative; z-index: 1;
+  display: flex; gap: 1.2rem; justify-content: center; flex-wrap: wrap;
+  padding: 1.5rem 1rem 2.5rem; font-size: var(--t-xs);
+}
+footer a { color: var(--giz-tenue); text-decoration: none; border-bottom: 1px solid transparent; }
+footer a:hover { color: var(--giz-fosco); border-bottom-color: var(--giz-tenue); }
+
+@media (max-width: 30rem) {
+  :root { --t-lg: 1.1rem; --t-xl: 1.35rem; }
+  .cuia { gap: .5rem; padding: .4rem .6rem; }
+  .bloco-anterior .titulo-anterior { writing-mode: horizontal-tb; transform: none; }
+  .bloco-anterior { flex-direction: column; align-items: center; }
+  .cartas-na-mesa { flex-direction: column; align-items: center; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; }
+  .grito-overlay.bate { animation: none; opacity: 1; }
+}
+
+/* carta citada no meio de uma frase do log */
+.carta-inline {
+  font-family: "Noto Sans Symbols 2", "Segoe UI Symbol", "DejaVu Sans", sans-serif;
+  font-size: 2.1em; line-height: 0; vertical-align: -.36em; color: var(--papel);
+}
+.carta-inline.vermelha { color: #e9a79f; }
+.j .dorsos { font-variant-numeric: tabular-nums; }

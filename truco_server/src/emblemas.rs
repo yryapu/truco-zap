@@ -30,7 +30,16 @@ pub fn de(j: &Jogador) -> Vec<Emblema> {
         15..=39 => ("zap", "Zap", "🃑"),
         _ => ("lenda", "Lenda do truco", "👑"),
     };
-    v.push(em(chave, nome, icone, format!("{} vitória(s)", j.vitorias)));
+    v.push(em(
+        chave,
+        nome,
+        icone,
+        match j.vitorias {
+            0 => "ainda sem vitórias".to_string(),
+            1 => "1 vitória".to_string(),
+            n => format!("{n} vitórias"),
+        },
+    ));
 
     // Trilha por histórico.
     if j.partidas() >= 25 {
@@ -54,7 +63,10 @@ pub fn de(j: &Jogador) -> Vec<Emblema> {
             "ressurgido",
             "Ressurgido",
             "🔥",
-            format!("{} vitórias depois de {} derrotas", j.vitorias, j.derrotas),
+            format!(
+                "virou o jogo: {} vitórias contra {} derrotas",
+                j.vitorias, j.derrotas
+            ),
         ));
     }
     if j.saldo >= 5000 {
@@ -66,7 +78,7 @@ pub fn de(j: &Jogador) -> Vec<Emblema> {
         ));
     }
     if j.saldo == 0 && j.partidas() > 0 {
-        v.push(em("quebrado", "Quebrado", "🫙", "saldo zerado".into()));
+        v.push(em("quebrado", "Quebrado", "🫙", "sem uma moeda".into()));
     }
     v
 }

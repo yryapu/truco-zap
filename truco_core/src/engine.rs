@@ -49,6 +49,22 @@ pub enum Fase {
     },
 }
 
+/// Uma rodada já resolvida, guardada para continuar **visível**.
+///
+/// Existe por um motivo de produto, não de regra: sem isto, as cartas saem da mesa no mesmo
+/// instante em que a rodada resolve, e o jogador nunca vê a carta do adversário ao lado da
+/// sua — não dá para acompanhar quem ganhou de quem. Fica guardada até a rodada seguinte
+/// resolver, e é zerada quando uma mão nova é distribuída.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct RodadaResolvida {
+    pub indice: usize,
+    pub jogadas: Vec<Jogada>,
+    /// `None` = empatou.
+    pub vencedor: Option<u8>,
+    /// Assentos que jogaram a carta mais alta. Vazio se a rodada saiu toda encoberta.
+    pub assentos_vencedores: Vec<usize>,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Jogada {
     pub assento: usize,
@@ -144,6 +160,9 @@ pub struct Mao {
     /// Resultado de cada rodada já concluída: `Some(time)` ou `None` se empatou.
     pub rodadas: Vec<Option<u8>>,
     pub jogadas: Vec<Jogada>,
+    /// A última rodada resolvida desta mão, para o cliente poder mostrar o que acabou de
+    /// acontecer em vez de ver a mesa esvaziar.
+    pub rodada_anterior: Option<RodadaResolvida>,
     pub puxador: usize,
     pub vez: usize,
     /// R9: o time que fez o último pedido aceito não pode pedir de novo em seguida.
@@ -243,6 +262,7 @@ impl Match {
             valor,
             rodadas: vec![],
             jogadas: vec![],
+            rodada_anterior: None,
             puxador: self.mao_de_quem,
             vez: self.mao_de_quem,
             ultimo_pedinte: None,
@@ -340,10 +360,15 @@ impl Match {
         }
 
         // Rodada completa: resolve.
-        let (vencedor, proximo) = self.resolver_rodada();
+        let (vencedor, proximo, assentos_vencedores) = self.resolver_rodada();
         self.mao.rodadas.push(vencedor);
         let indice = self.mao.rodadas.len() - 1;
-        self.mao.jogadas.clear();
+        self.mao.rodada_anterior = Some(RodadaResolvida {
+            indice,
+            jogadas: std::mem::take(&mut self.mao.jogadas),
+            vencedor,
+            assentos_vencedores,
+        });
         self.mao.puxador = proximo;
         self.mao.vez = proximo;
         ev.push(Evento::RodadaTerminou {
@@ -358,8 +383,8 @@ impl Match {
         Ok(ev)
     }
 
-    /// R6 + R4 + D07. Devolve (vencedor da rodada, quem puxa a próxima).
-    fn resolver_rodada(&self) -> (Option<u8>, usize) {
+    /// R6 + R4 + D07. Devolve (vencedor da rodada, quem puxa a próxima, assentos do topo).
+    fn resolver_rodada(&self) -> (Option<u8>, usize, Vec<usize>) {
         let vira = self.mao.vira;
         let visiveis: Vec<(usize, u8)> = self
             .mao
@@ -371,7 +396,7 @@ impl Match {
         // Caso de borda: todos jogaram encoberto (só possível na 2ª/3ª rodada).
         // Ninguém vence; quem puxou a rodada puxa a próxima.
         let Some(&(_, maxf)) = visiveis.iter().max_by_key(|(_, f)| *f) else {
-            return (None, self.mao.puxador);
+            return (None, self.mao.puxador, vec![]);
         };
 
         // Na ordem em que foram jogadas, os assentos que empataram no topo.
@@ -388,10 +413,10 @@ impl Match {
         if times.iter().all(|t| *t == times[0]) {
             // Um único time no topo — vence, mesmo se foram dois parceiros com cartas iguais
             // (F1: "the trick is not tied, but is won by the team that played the highest").
-            (Some(times[0]), primeiro_do_topo)
+            (Some(times[0]), primeiro_do_topo, topo)
         } else {
             // Empate (R6). D07: puxa quem pôs a primeira carta que empatou.
-            (None, primeiro_do_topo)
+            (None, primeiro_do_topo, topo)
         }
     }
 
@@ -549,6 +574,7 @@ impl Mao {
             valor: 1,
             rodadas: vec![],
             jogadas: vec![],
+            rodada_anterior: None,
             puxador: 0,
             vez: 0,
             ultimo_pedinte: None,

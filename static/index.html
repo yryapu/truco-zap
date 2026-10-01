@@ -3,144 +3,204 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>truco-zap — Truco Paulista</title>
+<meta name="theme-color" content="#140c09">
+<title>truco — paulista, na mesa do boteco</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Alfa+Slab+One&family=Archivo:wght@400;500;600;800&family=Noto+Sans+Symbols+2&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
+<div class="lampada" aria-hidden="true"><span class="bulbo"></span></div>
+
 <header>
-  <h1>truco&nbsp;<span class="zap">🃑</span>&nbsp;zap</h1>
-  <div id="barra-perfil" hidden>
-    <span data-testid="perfil-apelido" id="perfil-apelido"></span>
-    <span class="moedas"><b data-testid="perfil-saldo" id="perfil-saldo">—</b> moedas</span>
-    <span id="perfil-placar" class="discreto"></span>
-    <button data-testid="btn-sair" id="btn-sair" class="fantasma">sair</button>
+  <a class="marca" href="/">truco</a>
+  <div id="barra-perfil" class="pocket" hidden>
+    <span class="quem" data-testid="perfil-apelido" id="perfil-apelido"></span>
+    <span class="moedas"><span class="ficha" aria-hidden="true"></span><b data-testid="perfil-saldo" id="perfil-saldo">—</b></span>
+    <span class="vd" id="perfil-placar"></span>
+    <button data-testid="btn-sair" id="btn-sair" class="liso">sair</button>
   </div>
 </header>
 
-<!-- ───────────────────────────── entrada ───────────────────────────── -->
-<main id="tela-entrada" class="cartao">
-  <p class="chamada">Truco Paulista, 1x1 ou 2x2. Você começa com <b>1000 moedas</b>.</p>
-  <button data-testid="btn-convidado" id="btn-convidado" class="grande">Jogar agora</button>
-  <p class="discreto">um clique, sem formulário — dá para criar conta depois</p>
-  <details>
-    <summary>tenho / quero uma conta</summary>
-    <label>apelido <input data-testid="campo-apelido" id="campo-apelido" autocomplete="username" maxlength="20"></label>
-    <label>senha <input data-testid="campo-senha" id="campo-senha" type="password" autocomplete="current-password"></label>
-    <div class="linha">
-      <button data-testid="btn-cadastrar" id="btn-cadastrar">cadastrar</button>
-      <button data-testid="btn-entrar" id="btn-entrar">entrar</button>
+<!-- ─────────────────────────────  entrada  ───────────────────────────── -->
+<main id="tela-entrada" class="entrada">
+  <section class="leque-manilhas" aria-label="as quatro manilhas, da mais fraca para a mais forte">
+    <figure><span class="carta vermelha">🃁</span><figcaption>pica-fumo</figcaption></figure>
+    <figure><span class="carta">🂡</span><figcaption>espadilha</figcaption></figure>
+    <figure><span class="carta vermelha">🂱</span><figcaption>copeta</figcaption></figure>
+    <figure class="zap"><span class="carta">🃑</span><figcaption>zap</figcaption></figure>
+  </section>
+
+  <h1 class="grito">truco</h1>
+  <p class="lede">Paulista, com manilha virada a cada mão, mão de onze e mão de ferro.
+     Dois jogadores ou duas duplas.</p>
+
+  <button data-testid="btn-convidado" id="btn-convidado" class="pintado">Jogar agora</button>
+  <p class="miudo">Você entra com 1000 moedas e senta numa mesa em menos de um minuto.
+     Nenhum cadastro.</p>
+
+  <details class="conta">
+    <summary>Já tenho conta</summary>
+    <div class="campos">
+      <label>apelido
+        <input data-testid="campo-apelido" id="campo-apelido" autocomplete="username" maxlength="20">
+      </label>
+      <label>senha
+        <input data-testid="campo-senha" id="campo-senha" type="password" autocomplete="current-password">
+      </label>
+      <div class="dupla">
+        <button data-testid="btn-entrar" id="btn-entrar" class="pintado curto">Entrar</button>
+        <button data-testid="btn-cadastrar" id="btn-cadastrar" class="liso">Criar conta</button>
+      </div>
     </div>
   </details>
-  <p data-testid="erro-entrada" id="erro-entrada" class="erro"></p>
+  <p data-testid="erro-entrada" id="erro-entrada" class="aviso-erro" role="alert"></p>
 </main>
 
-<!-- ───────────────────────────── lobby ───────────────────────────── -->
-<main id="tela-lobby" hidden>
-  <section class="cartao">
-    <h2>emblemas</h2>
+<!-- ─────────────────────────────  lobby  ───────────────────────────── -->
+<main id="tela-lobby" class="lobby" hidden>
+  <section class="papel destaque" data-area="mesa">
+    <h2>Entrar numa mesa</h2>
+    <div class="modos" role="group" aria-label="formato da mesa">
+      <button data-testid="modo-1x1" id="modo-1x1" class="modo escolhido">
+        <b>1x1</b><small>você contra um</small>
+      </button>
+      <button data-testid="modo-2x2" id="modo-2x2" class="modo">
+        <b>2x2</b><small>em dupla, parceiro na frente</small>
+      </button>
+    </div>
+
+    <label class="aposta">Quanto você aposta
+      <input data-testid="campo-aposta" id="campo-aposta" type="number" min="0" step="1"
+             value="100" inputmode="numeric">
+    </label>
+    <div class="atalhos">
+      <button data-testid="aposta-0" data-valor="0" class="liso">amistoso</button>
+      <button data-testid="aposta-50" data-valor="50" class="liso">50</button>
+      <button data-testid="aposta-100" data-valor="100" class="liso">100</button>
+      <button data-testid="aposta-500" data-valor="500" class="liso">500</button>
+      <button data-testid="aposta-tudo" data-valor="tudo" class="liso">tudo</button>
+    </div>
+
+    <button data-testid="btn-fila" id="btn-fila" class="pintado">Procurar mesa</button>
+    <p data-testid="status-fila" id="status-fila" class="miudo" role="status"></p>
+  </section>
+
+  <section class="papel" data-area="repu">
+    <h2>Sua reputação</h2>
     <div data-testid="emblemas" id="emblemas" class="emblemas"></div>
   </section>
 
-  <section class="cartao">
-    <h2>nova partida</h2>
-    <div class="linha">
-      <button data-testid="modo-1x1" id="modo-1x1" class="modo escolhido">1x1</button>
-      <button data-testid="modo-2x2" id="modo-2x2" class="modo">2x2 (duplas)</button>
-    </div>
-    <label>aposta — quanto você quiser, até o seu saldo
-      <input data-testid="campo-aposta" id="campo-aposta" type="number"
-             min="0" step="1" value="100" inputmode="numeric">
+  <section class="lousa alto" data-area="ranking">
+    <h2>Quem está ganhando</h2>
+    <table class="placar-geral"><tbody data-testid="ranking" id="ranking"></tbody></table>
+  </section>
+
+  <section class="lousa" data-area="hist">
+    <h2>Suas últimas mesas</h2>
+    <table class="placar-geral"><tbody data-testid="historico" id="historico"></tbody></table>
+  </section>
+
+  <section class="papel recibo" data-area="avisos">
+    <h2>Avisar o seu sistema</h2>
+    <p class="miudo">Registre um endereço e a gente manda um POST quando a partida começa,
+      quando termina e com o resultado. O corpo vem assinado em
+      <code>X-Truco-Signature</code> com HMAC-SHA256, e cada aviso traz um
+      <code>evento_id</code> para você não contar duas vezes.</p>
+    <label>endereço
+      <input data-testid="webhook-url" id="webhook-url" placeholder="https://seu-sistema.com/truco">
     </label>
-    <div class="linha atalhos">
-      <button data-testid="aposta-0" class="fantasma" data-valor="0">amistoso</button>
-      <button data-testid="aposta-50" class="fantasma" data-valor="50">50</button>
-      <button data-testid="aposta-100" class="fantasma" data-valor="100">100</button>
-      <button data-testid="aposta-500" class="fantasma" data-valor="500">500</button>
-      <button data-testid="aposta-tudo" class="fantasma" data-valor="tudo">tudo</button>
-    </div>
-    <button data-testid="btn-fila" id="btn-fila" class="grande">Entrar na fila</button>
-    <p data-testid="status-fila" id="status-fila" class="discreto"></p>
-  </section>
-
-  <section class="cartao">
-    <h2>ranking</h2>
-    <table><tbody data-testid="ranking" id="ranking"></tbody></table>
-  </section>
-
-  <section class="cartao">
-    <h2>meu histórico</h2>
-    <table><tbody data-testid="historico" id="historico"></tbody></table>
-  </section>
-
-  <section class="cartao">
-    <h2>webhooks</h2>
-    <p class="discreto">Receba <code>partida.comecou</code>, <code>partida.terminou</code> e
-      <code>partida.resultado</code> por POST. O corpo vem assinado em
-      <code>X-Truco-Signature: sha256=&lt;hex&gt;</code> (HMAC-SHA256 do corpo).</p>
-    <label>URL <input data-testid="webhook-url" id="webhook-url" placeholder="https://exemplo.com/truco"></label>
-    <button data-testid="btn-webhook" id="btn-webhook">registrar</button>
+    <button data-testid="btn-webhook" id="btn-webhook" class="liso">Registrar endereço</button>
     <p data-testid="webhook-segredo" id="webhook-segredo" class="segredo"></p>
-    <ul data-testid="webhooks" id="webhooks"></ul>
+    <ul data-testid="webhooks" id="webhooks" class="lista-webhooks"></ul>
   </section>
 </main>
 
-<!-- ───────────────────────────── mesa ───────────────────────────── -->
-<main id="tela-mesa" hidden data-testid="mesa">
-  <section class="placar-barra">
-    <div class="placar"><span class="rot">nós</span><b data-testid="placar-nos" id="placar-nos">0</b></div>
-    <div class="meio">
-      <span class="discreto" data-testid="modo-mesa" id="modo-mesa"></span>
-      <div>vale <b data-testid="valor-mao" id="valor-mao">1</b></div>
-      <div class="discreto">bolo: <span data-testid="bolo" id="bolo">0</span> moedas</div>
+<!-- ─────────────────────────────  mesa  ───────────────────────────── -->
+<main id="tela-mesa" class="mesa" hidden data-testid="mesa">
+
+  <div class="cuia eles">
+    <span class="lado">eles</span>
+    <div class="sementes" id="sementes-eles" aria-hidden="true"></div>
+    <b data-testid="placar-eles" id="placar-eles">0</b>
+  </div>
+
+  <div class="tapete">
+    <div class="luz" aria-hidden="true"></div>
+
+    <div class="cabecalho-mao">
+      <div class="vira-bloco">
+        <span class="rotulo">vira</span>
+        <span class="carta mini" data-testid="vira" id="vira"></span>
+      </div>
+      <div class="manilha-bloco">
+        <span class="rotulo">manilha da mão</span>
+        <b data-testid="manilha" id="manilha">—</b>
+      </div>
+      <div class="valor-bloco">
+        <span class="rotulo">a mão vale</span>
+        <b data-testid="valor-mao" id="valor-mao">1</b>
+      </div>
+      <p data-testid="tipo-mao" id="tipo-mao" class="selo-mao" hidden></p>
     </div>
-    <div class="placar"><span class="rot">eles</span><b data-testid="placar-eles" id="placar-eles">0</b></div>
-  </section>
 
-  <section class="vira-faixa">
-    <span>vira</span>
-    <span class="carta pequena" data-testid="vira" id="vira"></span>
-    <span>manilha da mão: <b data-testid="manilha" id="manilha"></b></span>
-    <span data-testid="tipo-mao" id="tipo-mao" class="aviso"></span>
-  </section>
-
-  <section class="tapete">
     <div data-testid="jogadores" id="jogadores" class="jogadores"></div>
     <div data-testid="cartas-na-mesa" id="cartas-na-mesa" class="cartas-na-mesa"></div>
-    <div data-testid="rodadas" id="rodadas" class="rodadas"></div>
-  </section>
+    <div data-testid="rodadas" id="rodadas" class="rodadas" aria-label="rodadas desta mão"></div>
 
-  <section class="minha-area">
+    <p class="aposta-mesa">
+      <span data-testid="modo-mesa" id="modo-mesa"></span>
+      <span class="bolo-tag">bolo de <b data-testid="bolo" id="bolo">0</b> moedas</span>
+    </p>
+  </div>
+
+  <div class="cuia nos">
+    <span class="lado">nós</span>
+    <div class="sementes" id="sementes-nos" aria-hidden="true"></div>
+    <b data-testid="placar-nos" id="placar-nos">0</b>
+  </div>
+
+  <div class="minha-area">
+    <p data-testid="vez" id="vez" class="vez" role="status"></p>
     <div data-testid="minha-mao" id="minha-mao" class="minha-mao"></div>
+
     <label class="encoberta-opcao" id="encoberta-opcao" hidden>
-      <input type="checkbox" data-testid="chk-encoberta" id="chk-encoberta"> jogar de costas (encoberta)
+      <input type="checkbox" data-testid="chk-encoberta" id="chk-encoberta">
+      jogar a próxima de costas
     </label>
+
     <div class="acoes">
-      <button data-testid="btn-pedir" id="btn-pedir" hidden></button>
-      <button data-testid="btn-aceitar" id="btn-aceitar" hidden>aceitar</button>
-      <button data-testid="btn-aumentar" id="btn-aumentar" hidden></button>
-      <button data-testid="btn-correr" id="btn-correr" hidden>correr</button>
-      <button data-testid="btn-onze-jogar" id="btn-onze-jogar" hidden>jogar a mão de onze (vale 3)</button>
-      <button data-testid="btn-onze-correr" id="btn-onze-correr" hidden>recusar (dá 1 a eles)</button>
+      <button data-testid="btn-pedir" id="btn-pedir" class="pedir" hidden></button>
+      <button data-testid="btn-aceitar" id="btn-aceitar" class="aceitar" hidden>Aceitar</button>
+      <button data-testid="btn-aumentar" id="btn-aumentar" class="pedir" hidden>Aumentar</button>
+      <button data-testid="btn-correr" id="btn-correr" class="correr" hidden>Correr</button>
+      <button data-testid="btn-onze-jogar" id="btn-onze-jogar" class="aceitar" hidden>Jogar a mão de onze</button>
+      <button data-testid="btn-onze-correr" id="btn-onze-correr" class="correr" hidden>Recusar</button>
     </div>
-    <p data-testid="vez" id="vez" class="vez"></p>
-    <p data-testid="erro-mesa" id="erro-mesa" class="erro"></p>
+    <p data-testid="erro-mesa" id="erro-mesa" class="aviso-erro" role="alert"></p>
+  </div>
+
+  <section class="lousa fala">
+    <h2>Mesa fala</h2>
+    <ul data-testid="log" id="log"></ul>
   </section>
 
-  <section class="cartao" id="caixa-fim" hidden>
-    <h2 data-testid="fim" id="fim"></h2>
-    <button data-testid="btn-voltar" id="btn-voltar" class="grande">voltar ao lobby</button>
-  </section>
-
-  <section class="cartao">
-    <h2>mesa fala</h2>
-    <ul data-testid="log" id="log" class="log"></ul>
-  </section>
+  <div class="fim-overlay" id="caixa-fim" hidden>
+    <div class="fim-painel">
+      <h2 data-testid="fim" id="fim"></h2>
+      <p class="miudo" id="fim-detalhe"></p>
+      <button data-testid="btn-voltar" id="btn-voltar" class="pintado">Voltar ao lobby</button>
+    </div>
+  </div>
 </main>
 
+<div class="grito-overlay" id="grito-overlay" aria-hidden="true"><span id="grito-texto"></span></div>
+
 <footer>
-  <a href="https://github.com/yryapu/truco-zap">código</a> ·
-  <a href="https://github.com/yryapu/poliorketikos-truco-zap/blob/main/REGRAS.md">regras, com a fonte de cada uma</a>
+  <a href="https://github.com/yryapu/truco-zap">código</a>
+  <a href="https://github.com/yryapu/poliorketikos-truco-zap/blob/main/REGRAS.md">as regras, com a fonte de cada uma</a>
 </footer>
 
 <script src="app.js"></script>

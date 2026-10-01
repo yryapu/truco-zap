@@ -17,7 +17,7 @@ test('dois jogadores jogam uma partida 1x1 do início ao fim e o saldo muda', as
   }
   // Exatamente um dos dois tem a vez na primeira rodada.
   const vezes = await Promise.all(pages.map((p) => p.getByTestId('vez').textContent()));
-  expect(vezes.filter((v) => v.includes('sua vez')).length).toBe(1);
+  expect(vezes.filter((v) => /sua vez/i.test(v)).length, vezes.join(' | ')).toBe(1);
 
   await jogarAteOFim(pages);
 

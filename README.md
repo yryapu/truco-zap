@@ -54,6 +54,28 @@ Duas escolhas deliberadas onde as fontes divergem, para não parecerem bug:
 - pedir truco na mão de onze é **comando recusado**, não derrota automática
   ([D10](https://github.com/yryapu/poliorketikos-truco-zap/blob/main/decisoes/D10-truco-na-mao-de-onze.md)).
 
+## A interface
+
+Feltro verde é cassino. Truco é **boteco**: mesa de bar sob uma lâmpada incandescente, toalha
+xadrez desbotada, e o placar contado em **sementes de olho-de-cabra** — doze por dupla, que é
+como a fonte citada descreve a contagem de tentos (*"It is traditional to score using ormosia
+seeds (tentos)"*). Direção completa e alternativas descartadas:
+[D17](https://github.com/yryapu/poliorketikos-truco-zap/blob/main/decisoes/D17-direcao-visual.md).
+
+Três coisas que a mesa precisa deixar óbvio, e deixa:
+
+- **A rodada que acabou continua na mesa**, com as duas cartas, quem jogou cada uma, a perdedora
+  apagada e a vencedora marcada com *levou*. Sem isso você nunca vê a carta do adversário ao lado
+  da sua — a mesa esvaziava no instante em que a rodada resolvia.
+- **Anel dourado significa uma coisa só: manilha.** Quem levou a rodada se distingue por
+  continuar aceso enquanto o resto apaga, não por outro anel igual.
+- **O placar é físico.** Doze sementes enchendo é mais rápido de ler que um número, e a mão de
+  onze deixa de ser surpresa.
+
+A carta na tela é o mesmo code point que trafega no WebSocket. O glifo do bloco *Playing Cards*
+desenha só o contorno — a face é transparente — então o corpo creme da carta é um `::before`
+encaixado no retângulo de tinta do glifo, **medido** em canvas (`e2e/medir.mjs`), não chutado.
+
 ## Arquitetura
 
 ```
