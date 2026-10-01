@@ -94,16 +94,29 @@ pub struct Hub {
 }
 
 impl Hub {
-    pub fn registrar(&mut self, jogador_id: String, apelido: String, tx: UnboundedSender<String>) -> ConnId {
+    pub fn registrar(
+        &mut self,
+        jogador_id: String,
+        apelido: String,
+        tx: UnboundedSender<String>,
+    ) -> ConnId {
         self.prox += 1;
         let id = self.prox;
         // Uma conexão por jogador: a nova derruba a antiga. Evita duas abas disputando a vez.
         if let Some(antiga) = self.por_jogador.insert(jogador_id.clone(), id) {
             if let Some(c) = self.conns.remove(&antiga) {
-                let _ = c.tx.send(json!({"t":"derrubado","motivo":"outra_conexao"}).to_string());
+                let _ =
+                    c.tx.send(json!({"t":"derrubado","motivo":"outra_conexao"}).to_string());
             }
         }
-        self.conns.insert(id, Conn { jogador_id: jogador_id.clone(), apelido, tx });
+        self.conns.insert(
+            id,
+            Conn {
+                jogador_id: jogador_id.clone(),
+                apelido,
+                tx,
+            },
+        );
         // Reconexão: se o jogador já está numa mesa, religa o assento a esta conexão.
         if let Some(mid) = self.mesa_do_jogador.get(&jogador_id).cloned() {
             if let Some(mesa) = self.mesas.get_mut(&mid) {
@@ -118,7 +131,9 @@ impl Hub {
     }
 
     pub fn desregistrar(&mut self, conn: ConnId) {
-        let Some(c) = self.conns.remove(&conn) else { return };
+        let Some(c) = self.conns.remove(&conn) else {
+            return;
+        };
         if self.por_jogador.get(&c.jogador_id) == Some(&conn) {
             self.por_jogador.remove(&c.jogador_id);
         }
@@ -172,7 +187,12 @@ fn carta_str(c: Card) -> String {
 /// A encoberta sai como U+1F0A0 (PLAYING CARD BACK) — o caractere certo para "carta de costas".
 pub fn evento_json(ev: &Evento) -> Value {
     match ev {
-        Evento::MaoComecou { vira, tipo, valor, mao } => json!({
+        Evento::MaoComecou {
+            vira,
+            tipo,
+            valor,
+            mao,
+        } => json!({
             "evento":"mao_comecou","vira":carta_str(*vira),
             "manilha_rank": carta_str(Card::new(vira.rank.proximo_ciclico(), truco_core::Suit::Paus)),
             "tipo":tipo,"valor":valor,"mao":mao
@@ -182,21 +202,36 @@ pub fn evento_json(ev: &Evento) -> Value {
             "carta": j.carta.map(carta_str).unwrap_or_else(|| CARTA_DE_COSTAS.to_string()),
             "encoberta":j.encoberta
         }),
-        Evento::RodadaTerminou { indice, vencedor, proximo_a_puxar } => json!({
+        Evento::RodadaTerminou {
+            indice,
+            vencedor,
+            proximo_a_puxar,
+        } => json!({
             "evento":"rodada_terminou","indice":indice,"vencedor":vencedor,
             "proximo_a_puxar":proximo_a_puxar
         }),
-        Evento::Pedido { assento, time, proposto } => json!({
+        Evento::Pedido {
+            assento,
+            time,
+            proposto,
+        } => json!({
             "evento":"pedido","assento":assento,"time":time,"proposto":proposto
         }),
         Evento::PedidoAceito { valor } => json!({"evento":"pedido_aceito","valor":valor}),
-        Evento::Correu { time_que_correu, pontos } => json!({
+        Evento::Correu {
+            time_que_correu,
+            pontos,
+        } => json!({
             "evento":"correu","time_que_correu":time_que_correu,"pontos":pontos
         }),
         Evento::MaoDeOnzeRecusada { time, pontos_para } => json!({
             "evento":"mao_de_onze_recusada","time":time,"pontos_para":pontos_para
         }),
-        Evento::MaoTerminou { vencedor, pontos, placar } => json!({
+        Evento::MaoTerminou {
+            vencedor,
+            pontos,
+            placar,
+        } => json!({
             "evento":"mao_terminou","vencedor":vencedor,"pontos":pontos,"placar":placar
         }),
         Evento::PartidaTerminou { vencedor, placar } => json!({
@@ -207,10 +242,15 @@ pub fn evento_json(ev: &Evento) -> Value {
 
 pub fn estado_view(mesa: &Mesa, assento: usize) -> Value {
     let m = &mesa.m;
-    let minha_mao: Vec<String> = m.mao.cartas[assento].iter().copied().map(carta_str).collect();
+    let minha_mao: Vec<String> = m.mao.cartas[assento]
+        .iter()
+        .copied()
+        .map(carta_str)
+        .collect();
 
     // R10: só na decisão da mão de onze a dupla vê a mão do parceiro. Em nenhum outro momento.
-    let mao_do_parceiro = if m.pode_ver_cartas_do_parceiro(assento) && mesa.modo == Modo::DoisXDois {
+    let mao_do_parceiro = if m.pode_ver_cartas_do_parceiro(assento) && mesa.modo == Modo::DoisXDois
+    {
         let parceiro = (assento + 2) % 4;
         Some(json!({
             "assento": parceiro,
@@ -357,15 +397,24 @@ pub fn acao_do_robo<R: rand::Rng>(m: &Match, assento: usize, rng: &mut R) -> Aca
 #[derive(Debug, Deserialize)]
 #[serde(tag = "t", rename_all = "snake_case")]
 pub enum Comando {
-    EntrarFila { modo: Modo, aposta: i64 },
+    EntrarFila {
+        modo: Modo,
+        aposta: i64,
+    },
     SairFila,
     /// A carta vem como o caractere Unicode. Qualquer coisa fora do baralho é rejeitada.
-    Jogar { carta: String, #[serde(default)] encoberta: bool },
+    Jogar {
+        carta: String,
+        #[serde(default)]
+        encoberta: bool,
+    },
     Pedir,
     Aceitar,
     Correr,
     Aumentar,
-    MaoDeOnze { jogar: bool },
+    MaoDeOnze {
+        jogar: bool,
+    },
     Ping,
 }
 
@@ -377,7 +426,10 @@ impl Comando {
                 let mut cs = carta.chars();
                 match (cs.next(), cs.next()) {
                     (Some(c), None) => match Card::from_unicode(c) {
-                        Some(carta) => Ok(Acao::Jogar { carta, encoberta: *encoberta }),
+                        Some(carta) => Ok(Acao::Jogar {
+                            carta,
+                            encoberta: *encoberta,
+                        }),
                         None => Err("carta_desconhecida"),
                     },
                     _ => Err("carta_desconhecida"),

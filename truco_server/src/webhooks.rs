@@ -27,7 +27,10 @@ pub fn assinar(segredo: &str, corpo: &str) -> String {
 /// depois deixar o cliente HTTP resolver de novo é um TOCTOU clássico (DNS rebinding) — um
 /// resolvedor hostil devolve um IP público para a checagem e um privado para a conexão.
 /// Quem chama tem de **fixar** este endereço na conexão. Ver `entregar_uma`.
-pub async fn endereco_permitido(url: &str, cfg: &Config) -> Result<Option<(String, SocketAddr)>, String> {
+pub async fn endereco_permitido(
+    url: &str,
+    cfg: &Config,
+) -> Result<Option<(String, SocketAddr)>, String> {
     let u = reqwest::Url::parse(url).map_err(|e| format!("url invalida: {e}"))?;
     match u.scheme() {
         "https" => {}
@@ -51,7 +54,10 @@ pub async fn endereco_permitido(url: &str, cfg: &Config) -> Result<Option<(Strin
     // exatamente o perfil de um ataque, não de um webhook legítimo.
     for sa in &enderecos {
         if ip_interno(sa.ip()) {
-            return Err(format!("{host} resolve para endereco interno ({})", sa.ip()));
+            return Err(format!(
+                "{host} resolve para endereco interno ({})",
+                sa.ip()
+            ));
         }
     }
     Ok(Some((host, enderecos[0])))
@@ -99,7 +105,11 @@ pub struct Config {
 
 impl Config {
     pub fn do_ambiente() -> Config {
-        let liga = |k: &str| std::env::var(k).map(|v| v == "1" || v == "true").unwrap_or(false);
+        let liga = |k: &str| {
+            std::env::var(k)
+                .map(|v| v == "1" || v == "true")
+                .unwrap_or(false)
+        };
         Config {
             permite_http: liga("TRUCO_WEBHOOK_ALLOW_HTTP"),
             permite_privado: liga("TRUCO_WEBHOOK_ALLOW_PRIVATE"),
@@ -219,7 +229,11 @@ mod testes {
     use super::*;
 
     fn cfg() -> Config {
-        Config { permite_http: false, permite_privado: false, max_tentativas: 3 }
+        Config {
+            permite_http: false,
+            permite_privado: false,
+            max_tentativas: 3,
+        }
     }
 
     #[test]
@@ -232,8 +246,19 @@ mod testes {
 
     #[test]
     fn reconhece_enderecos_internos() {
-        for s in ["127.0.0.1", "10.1.2.3", "192.168.0.1", "172.16.0.1", "169.254.169.254",
-                  "0.0.0.0", "100.64.0.1", "::1", "fd00::1", "fe80::1", "::ffff:127.0.0.1"] {
+        for s in [
+            "127.0.0.1",
+            "10.1.2.3",
+            "192.168.0.1",
+            "172.16.0.1",
+            "169.254.169.254",
+            "0.0.0.0",
+            "100.64.0.1",
+            "::1",
+            "fd00::1",
+            "fe80::1",
+            "::ffff:127.0.0.1",
+        ] {
             assert!(ip_interno(s.parse().unwrap()), "{s} deveria ser interno");
         }
         for s in ["8.8.8.8", "1.1.1.1", "2606:4700::1111"] {
@@ -248,15 +273,28 @@ mod testes {
         assert!(url_permitida("https://127.0.0.1/h", &cfg()).await.is_err());
         assert!(url_permitida("https://[::1]/h", &cfg()).await.is_err());
         // 169.254.169.254 e o metadata de nuvem — o alvo classico de SSRF.
-        assert!(url_permitida("https://169.254.169.254/latest/meta-data/", &cfg()).await.is_err());
+        assert!(
+            url_permitida("https://169.254.169.254/latest/meta-data/", &cfg())
+                .await
+                .is_err()
+        );
     }
 
     #[tokio::test]
     async fn permite_http_e_privado_quando_explicitamente_ligado() {
-        let aberto = Config { permite_http: true, permite_privado: true, max_tentativas: 3 };
+        let aberto = Config {
+            permite_http: true,
+            permite_privado: true,
+            max_tentativas: 3,
+        };
         assert!(url_permitida("http://127.0.0.1:9/h", &aberto).await.is_ok());
         // Com privado liberado nao ha endereco a fixar — a pilha de teste resolve normalmente.
-        assert_eq!(endereco_permitido("http://127.0.0.1:9/h", &aberto).await.unwrap(), None);
+        assert_eq!(
+            endereco_permitido("http://127.0.0.1:9/h", &aberto)
+                .await
+                .unwrap(),
+            None
+        );
     }
 
     /// O endereco validado tem de voltar para quem chama, senao a conexao resolve de novo

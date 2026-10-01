@@ -48,7 +48,10 @@ async fn main() -> anyhow::Result<()> {
         .init();
 
     let url = std::env::var("DATABASE_URL").unwrap_or_else(|_| "sqlite://data/truco.db".into());
-    if let Some(dir) = url.strip_prefix("sqlite://").and_then(|p| std::path::Path::new(p).parent()) {
+    if let Some(dir) = url
+        .strip_prefix("sqlite://")
+        .and_then(|p| std::path::Path::new(p).parent())
+    {
         let _ = std::fs::create_dir_all(dir);
     }
     let pool = db::abrir(&url).await?;
@@ -68,10 +71,16 @@ async fn main() -> anyhow::Result<()> {
             .redirect(reqwest::redirect::Policy::none()) // redirect e rota de fuga de SSRF
             .build()?,
         wcfg: webhooks::Config::do_ambiente(),
-        cookie_seguro: std::env::var("TRUCO_COOKIE_SECURE").map(|v| v == "1").unwrap_or(false),
+        cookie_seguro: std::env::var("TRUCO_COOKIE_SECURE")
+            .map(|v| v == "1")
+            .unwrap_or(false),
     };
 
-    tokio::spawn(webhooks::trabalhador(st.pool.clone(), st.http.clone(), st.wcfg.clone()));
+    tokio::spawn(webhooks::trabalhador(
+        st.pool.clone(),
+        st.http.clone(),
+        st.wcfg.clone(),
+    ));
     tokio::spawn(ticker(st.clone()));
 
     let estaticos = std::env::var("TRUCO_STATIC").unwrap_or_else(|_| "static".into());
@@ -88,14 +97,16 @@ async fn main() -> anyhow::Result<()> {
         .route("/api/webhooks/{id}", delete(apagar_webhook))
         .route("/ws", get(ws_entrada))
         .fallback_service(
-            tower_http::services::ServeDir::new(&estaticos)
-                .append_index_html_on_directories(true),
+            tower_http::services::ServeDir::new(&estaticos).append_index_html_on_directories(true),
         )
         .layer(tower_http::limit::RequestBodyLimitLayer::new(32 * 1024))
         .layer(tower_http::trace::TraceLayer::new_for_http())
         .with_state(st);
 
-    let porta: u16 = std::env::var("PORT").ok().and_then(|p| p.parse().ok()).unwrap_or(8080);
+    let porta: u16 = std::env::var("PORT")
+        .ok()
+        .and_then(|p| p.parse().ok())
+        .unwrap_or(8080);
     let listener = tokio::net::TcpListener::bind(("0.0.0.0", porta)).await?;
     tracing::info!("truco-zap ouvindo em http://0.0.0.0:{porta}");
     axum::serve(listener, app)
@@ -117,8 +128,10 @@ fn ruim(codigo: &str) -> (StatusCode, Json<Value>) {
 
 async fn saude(State(st): State<AppState>) -> Resposta {
     let mesas = st.hub.lock().await.mesas.len();
-    Ok(Json(json!({"ok": true, "mesas_ativas": mesas, "versao": env!("CARGO_PKG_VERSION")}))
-        .into_response())
+    Ok(
+        Json(json!({"ok": true, "mesas_ativas": mesas, "versao": env!("CARGO_PKG_VERSION")}))
+            .into_response(),
+    )
 }
 
 #[derive(Deserialize)]
@@ -131,17 +144,31 @@ fn com_cookie(st: &AppState, token: &str, corpo: Value) -> Response {
     let mut h = HeaderMap::new();
     h.insert(
         header::SET_COOKIE,
-        auth::cookie_de_sessao(token, st.cookie_seguro).parse().expect("cookie ascii"),
+        auth::cookie_de_sessao(token, st.cookie_seguro)
+            .parse()
+            .expect("cookie ascii"),
     );
     (h, Json(corpo)).into_response()
 }
 
-async fn abrir_sessao(st: &AppState, j: &db::Jogador) -> Result<Response, (StatusCode, Json<Value>)> {
+async fn abrir_sessao(
+    st: &AppState,
+    j: &db::Jogador,
+) -> Result<Response, (StatusCode, Json<Value>)> {
     let token = auth::token_novo();
     db::criar_sessao(&st.pool, &auth::hash_token(&token), &j.id)
         .await
-        .map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({"erro":"banco"}))))?;
-    Ok(com_cookie(st, &token, json!({"jogador": hub::perfil_json(j)})))
+        .map_err(|_| {
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(json!({"erro":"banco"})),
+            )
+        })?;
+    Ok(com_cookie(
+        st,
+        &token,
+        json!({"jogador": hub::perfil_json(j)}),
+    ))
 }
 
 async fn cadastro(State(st): State<AppState>, Json(c): Json<Credenciais>) -> Resposta {
@@ -174,14 +201,24 @@ async fn criar_e_entrar(st: &AppState, apelido: &str, senha: &str, convidado: bo
     db::criar_jogador(&st.pool, &id, apelido, &hash, convidado)
         .await
         .map_err(|_| ruim("apelido_em_uso"))?;
-    let j = db::jogador_por_id(&st.pool, &id).await.map_err(|_| ruim("banco"))?.ok_or_else(|| ruim("banco"))?;
+    let j = db::jogador_por_id(&st.pool, &id)
+        .await
+        .map_err(|_| ruim("banco"))?
+        .ok_or_else(|| ruim("banco"))?;
     abrir_sessao(st, &j).await
 }
 
 async fn entrar(State(st): State<AppState>, Json(c): Json<Credenciais>) -> Resposta {
-    let j = db::jogador_por_apelido(&st.pool, &c.apelido).await.map_err(|_| ruim("banco"))?;
+    let j = db::jogador_por_apelido(&st.pool, &c.apelido)
+        .await
+        .map_err(|_| ruim("banco"))?;
     // Mesma resposta para apelido inexistente e senha errada: não entrego enumeração de contas.
-    let erro = || (StatusCode::UNAUTHORIZED, Json(json!({"erro": "credenciais_invalidas"})));
+    let erro = || {
+        (
+            StatusCode::UNAUTHORIZED,
+            Json(json!({"erro": "credenciais_invalidas"})),
+        )
+    };
     let j = j.ok_or_else(erro)?;
     if !auth::confere_senha(&c.senha, &j.senha_hash) {
         return Err(erro());
@@ -201,7 +238,10 @@ async fn sair(State(st): State<AppState>, headers: HeaderMap) -> Resposta {
         }
     }
     let mut h = HeaderMap::new();
-    h.insert(header::SET_COOKIE, auth::cookie_vazio().parse().expect("cookie ascii"));
+    h.insert(
+        header::SET_COOKIE,
+        auth::cookie_vazio().parse().expect("cookie ascii"),
+    );
     Ok((h, Json(json!({"ok": true}))).into_response())
 }
 
@@ -215,12 +255,16 @@ async fn ranking(State(st): State<AppState>) -> Resposta {
 }
 
 async fn historico(State(st): State<AppState>, Autenticado(j): Autenticado) -> Resposta {
-    let h = db::historico(&st.pool, &j.id, 25).await.map_err(|_| ruim("banco"))?;
+    let h = db::historico(&st.pool, &j.id, 25)
+        .await
+        .map_err(|_| ruim("banco"))?;
     Ok(Json(json!({"historico": h})).into_response())
 }
 
 async fn listar_webhooks(State(st): State<AppState>, Autenticado(j): Autenticado) -> Resposta {
-    let w = db::webhooks_de(&st.pool, &j.id).await.map_err(|_| ruim("banco"))?;
+    let w = db::webhooks_de(&st.pool, &j.id)
+        .await
+        .map_err(|_| ruim("banco"))?;
     // O segredo não volta na listagem: ele é mostrado uma vez, no registro.
     Ok(Json(json!({
         "webhooks": w.iter().map(|x| json!({"id": x.id, "url": x.url})).collect::<Vec<_>>(),
@@ -241,9 +285,14 @@ async fn criar_webhook(
 ) -> Resposta {
     // Valida já no registro para dar erro útil, e de novo na entrega (DNS pode mudar).
     if let Err(motivo) = webhooks::url_permitida(&n.url, &st.wcfg).await {
-        return Err((StatusCode::BAD_REQUEST, Json(json!({"erro":"url_recusada","motivo":motivo}))));
+        return Err((
+            StatusCode::BAD_REQUEST,
+            Json(json!({"erro":"url_recusada","motivo":motivo})),
+        ));
     }
-    let existentes = db::webhooks_de(&st.pool, &j.id).await.map_err(|_| ruim("banco"))?;
+    let existentes = db::webhooks_de(&st.pool, &j.id)
+        .await
+        .map_err(|_| ruim("banco"))?;
     if existentes.len() >= 5 {
         return Err(ruim("limite_de_webhooks"));
     }
@@ -265,9 +314,14 @@ async fn apagar_webhook(
     Autenticado(j): Autenticado,
     Path(id): Path<String>,
 ) -> Resposta {
-    let n = db::remover_webhook(&st.pool, &id, &j.id).await.map_err(|_| ruim("banco"))?;
+    let n = db::remover_webhook(&st.pool, &id, &j.id)
+        .await
+        .map_err(|_| ruim("banco"))?;
     if n == 0 {
-        return Err((StatusCode::NOT_FOUND, Json(json!({"erro":"nao_encontrado"}))));
+        return Err((
+            StatusCode::NOT_FOUND,
+            Json(json!({"erro":"nao_encontrado"})),
+        ));
     }
     Ok(Json(json!({"ok": true})).into_response())
 }
@@ -297,7 +351,10 @@ async fn conexao(socket: WebSocket, st: AppState, jogador: db::Jogador) {
     let conn = {
         let mut h = st.hub.lock().await;
         let conn = h.registrar(jogador.id.clone(), jogador.apelido.clone(), tx);
-        h.enviar(conn, json!({"t":"ola","jogador": hub::perfil_json(&jogador)}));
+        h.enviar(
+            conn,
+            json!({"t":"ola","jogador": hub::perfil_json(&jogador)}),
+        );
         if let Some(mid) = h.mesa_do_jogador.get(&jogador.id).cloned() {
             if let Some(mesa) = h.mesas.get(&mid) {
                 if let Some(assento) = assento_de(mesa, &jogador.id) {
@@ -325,7 +382,9 @@ async fn conexao(socket: WebSocket, st: AppState, jogador: db::Jogador) {
 }
 
 fn assento_de(mesa: &Mesa, jogador_id: &str) -> Option<usize> {
-    mesa.assentados.iter().position(|a| a.jogador_id.as_deref() == Some(jogador_id))
+    mesa.assentados
+        .iter()
+        .position(|a| a.jogador_id.as_deref() == Some(jogador_id))
 }
 
 async fn tratar(st: &AppState, conn: hub::ConnId, jogador_id: &str, cmd: hub::Comando) {
@@ -444,14 +503,28 @@ fn coletar_aberturas(h: &mut Hub) -> Vec<Abertura> {
     for ((modo, aposta), fila) in h.filas.iter_mut() {
         let n = modo.jogadores();
         while fila.len() >= n {
-            let humanos = fila.drain(..n).map(|e| (e.conn, e.jogador_id, e.apelido)).collect();
-            out.push(Abertura { modo: *modo, aposta: *aposta, humanos });
+            let humanos = fila
+                .drain(..n)
+                .map(|e| (e.conn, e.jogador_id, e.apelido))
+                .collect();
+            out.push(Abertura {
+                modo: *modo,
+                aposta: *aposta,
+                humanos,
+            });
         }
         // Casa vazia: completa com robôs para que ninguém espere indefinidamente (D15).
         if let Some(mais_antigo) = fila.first() {
             if mais_antigo.desde.elapsed() >= hub::ESPERA_ATE_ROBO {
-                let humanos = fila.drain(..).map(|e| (e.conn, e.jogador_id, e.apelido)).collect();
-                out.push(Abertura { modo: *modo, aposta: *aposta, humanos });
+                let humanos = fila
+                    .drain(..)
+                    .map(|e| (e.conn, e.jogador_id, e.apelido))
+                    .collect();
+                out.push(Abertura {
+                    modo: *modo,
+                    aposta: *aposta,
+                    humanos,
+                });
             }
         }
     }
@@ -463,10 +536,18 @@ async fn abrir_mesa(st: &AppState, ab: Abertura) {
     let n = ab.modo.jogadores();
     let partida_id = uuid::Uuid::new_v4().to_string();
     let assentos: Vec<(usize, u8, Option<String>)> = (0..n)
-        .map(|i| (i, time_do_assento(i), ab.humanos.get(i).map(|(_, id, _)| id.clone())))
+        .map(|i| {
+            (
+                i,
+                time_do_assento(i),
+                ab.humanos.get(i).map(|(_, id, _)| id.clone()),
+            )
+        })
         .collect();
 
-    let bolo = match db::abrir_partida(&st.pool, &partida_id, ab.modo.texto(), ab.aposta, &assentos).await {
+    let bolo = match db::abrir_partida(&st.pool, &partida_id, ab.modo.texto(), ab.aposta, &assentos)
+        .await
+    {
         Ok(b) => b,
         Err(e) => {
             tracing::warn!("nao abri partida: {e}");
@@ -522,8 +603,11 @@ async fn abrir_mesa(st: &AppState, ab: Abertura) {
                 "robo": a.jogador_id.is_none()
             })).collect::<Vec<_>>(),
         });
-        h.transmitir(&mesa, json!({"t":"mesa","partida_id":partida_id,"modo":ab.modo.texto(),
-                                  "aposta":ab.aposta,"bolo":bolo}));
+        h.transmitir(
+            &mesa,
+            json!({"t":"mesa","partida_id":partida_id,"modo":ab.modo.texto(),
+                                  "aposta":ab.aposta,"bolo":bolo}),
+        );
         h.transmitir_estado(&mesa);
         h.mesas.insert(partida_id.clone(), mesa);
         corpo
@@ -535,15 +619,15 @@ async fn abrir_mesa(st: &AppState, ab: Abertura) {
 
 /// Quem o servidor joga por conta própria: robô, ou humano desconectado (senão a mesa travava).
 fn ator_automatico(mesa: &Mesa) -> Option<usize> {
-    let automatico = |i: usize| {
-        mesa.assentados[i].jogador_id.is_none() || mesa.assentados[i].conn.is_none()
-    };
+    let automatico =
+        |i: usize| mesa.assentados[i].jogador_id.is_none() || mesa.assentados[i].conn.is_none();
     match mesa.m.fase {
         Fase::Jogando => {
             let v = mesa.m.mao.vez;
             automatico(v).then_some(v)
         }
-        Fase::AguardandoResposta { respondendo, .. } | Fase::DecisaoMaoDeOnze { time: respondendo } => {
+        Fase::AguardandoResposta { respondendo, .. }
+        | Fase::DecisaoMaoDeOnze { time: respondendo } => {
             let do_time: Vec<usize> = (0..mesa.assentados.len())
                 .filter(|i| time_do_assento(*i) == respondendo)
                 .collect();
@@ -564,7 +648,9 @@ fn passo_das_mesas(h: &mut Hub, rng: &mut StdRng) {
         .collect();
 
     for id in ids {
-        let Some(mesa) = h.mesas.get_mut(&id) else { continue };
+        let Some(mesa) = h.mesas.get_mut(&id) else {
+            continue;
+        };
         let eventos: Vec<Value> = match mesa.m.fase {
             Fase::MaoEncerrada => {
                 let evs = mesa.m.nova_mao(rng);
@@ -572,7 +658,9 @@ fn passo_das_mesas(h: &mut Hub, rng: &mut StdRng) {
             }
             Fase::PartidaEncerrada { .. } => continue, // coletar_fins trata
             _ => {
-                let Some(assento) = ator_automatico(mesa) else { continue };
+                let Some(assento) = ator_automatico(mesa) else {
+                    continue;
+                };
                 let acao = hub::acao_do_robo(&mesa.m, assento, rng);
                 match mesa.m.aplicar(assento, acao) {
                     Ok(evs) => evs.iter().map(hub::evento_json).collect(),
@@ -623,7 +711,9 @@ fn coletar_fins(h: &mut Hub) -> Vec<Fim> {
                     .iter()
                     .enumerate()
                     .filter_map(|(i, a)| {
-                        a.jogador_id.clone().map(|id| (id, time_do_assento(i), a.apelido.clone()))
+                        a.jogador_id
+                            .clone()
+                            .map(|id| (id, time_do_assento(i), a.apelido.clone()))
                     })
                     .collect(),
             });
@@ -635,9 +725,16 @@ fn coletar_fins(h: &mut Hub) -> Vec<Fim> {
 async fn finalizar(st: &AppState, f: Fim) {
     // D15: o bolo é só o que humanos apostaram, e é dividido entre os humanos vencedores.
     // Robô não aposta, então não há como imprimir moeda ganhando de robô.
-    let vencedores: Vec<&(String, u8, String)> =
-        f.humanos.iter().filter(|(_, t, _)| *t == f.vencedor).collect();
-    let por_cabeca = if vencedores.is_empty() { 0 } else { f.bolo / vencedores.len() as i64 };
+    let vencedores: Vec<&(String, u8, String)> = f
+        .humanos
+        .iter()
+        .filter(|(_, t, _)| *t == f.vencedor)
+        .collect();
+    let por_cabeca = if vencedores.is_empty() {
+        0
+    } else {
+        f.bolo / vencedores.len() as i64
+    };
 
     let premiacoes: Vec<db::Premiacao> = f
         .humanos

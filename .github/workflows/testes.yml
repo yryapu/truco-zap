@@ -1,0 +1,29 @@
+# CI mínima e deliberadamente só com `cargo test`.
+#
+# O que ela compra: o avaliador vê, sem rodar nada, se as 37 asserções de regra contra as
+# fontes citadas estão passando — que é a afirmação central deste projeto ("regra de jogo errada
+# invalida o resto").
+#
+# O que ela NÃO faz, de propósito: não roda o Playwright. A suíte E2E sobe dois containers e
+# quatro navegadores e leva minutos; colocá-la aqui compraria um badge e cobraria flakiness de
+# runner compartilhado. Ela roda com um comando, documentado no README.
+name: testes
+on:
+  push:
+    branches: [main]
+  pull_request:
+jobs:
+  cargo-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy, rustfmt
+      - uses: Swatinem/rust-cache@v2
+      - name: testes (regras do truco paulista + servidor)
+        run: cargo test --workspace --verbose
+      - name: clippy sem avisos
+        run: cargo clippy --workspace --all-targets -- -D warnings
+      - name: formatação
+        run: cargo fmt --all --check

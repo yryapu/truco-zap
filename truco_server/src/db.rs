@@ -18,7 +18,10 @@ pub async fn abrir(url: &str) -> anyhow::Result<Pool> {
         .journal_mode(sqlx::sqlite::SqliteJournalMode::Wal)
         .busy_timeout(std::time::Duration::from_secs(5))
         .foreign_keys(true);
-    let pool = SqlitePoolOptions::new().max_connections(8).connect_with(opts).await?;
+    let pool = SqlitePoolOptions::new()
+        .max_connections(8)
+        .connect_with(opts)
+        .await?;
     sqlx::migrate!("../migrations").run(&pool).await?;
     Ok(pool)
 }
@@ -96,17 +99,21 @@ pub async fn criar_sessao(p: &Pool, token_hash: &str, jogador_id: &str) -> sqlx:
 }
 
 pub async fn jogador_por_token_hash(p: &Pool, h: &str) -> sqlx::Result<Option<Jogador>> {
-    sqlx::query_as::<_, Jogador>(&format!(
+    sqlx::query_as::<_, Jogador>(
         "SELECT j.id, j.apelido, j.senha_hash, j.saldo, j.vitorias, j.derrotas, j.convidado
-         FROM sessao s JOIN jogador j ON j.id = s.jogador_id WHERE s.token_hash = ?"
-    ))
+         FROM sessao s JOIN jogador j ON j.id = s.jogador_id WHERE s.token_hash = ?",
+    )
     .bind(h)
     .fetch_optional(p)
     .await
 }
 
 pub async fn apagar_sessao(p: &Pool, h: &str) -> sqlx::Result<()> {
-    sqlx::query("DELETE FROM sessao WHERE token_hash = ?").bind(h).execute(p).await.map(|_| ())
+    sqlx::query("DELETE FROM sessao WHERE token_hash = ?")
+        .bind(h)
+        .execute(p)
+        .await
+        .map(|_| ())
 }
 
 /// Debita a aposta de cada jogador humano e abre a partida, tudo numa transação.
@@ -320,7 +327,11 @@ pub struct LinhaHistorico {
     pub terminou_em: Option<String>,
 }
 
-pub async fn historico(p: &Pool, jogador_id: &str, limite: i64) -> sqlx::Result<Vec<LinhaHistorico>> {
+pub async fn historico(
+    p: &Pool,
+    jogador_id: &str,
+    limite: i64,
+) -> sqlx::Result<Vec<LinhaHistorico>> {
     sqlx::query_as::<_, LinhaHistorico>(
         "SELECT pa.id AS partida_id, pa.modo, pt.aposta, pt.premio,
                 pa.placar_time0, pa.placar_time1, pa.terminou_em,
@@ -357,17 +368,15 @@ pub async fn registrar_webhook(
     url: &str,
     segredo: &str,
 ) -> sqlx::Result<()> {
-    sqlx::query(
-        "INSERT INTO webhook (id, jogador_id, url, segredo, criado_em) VALUES (?,?,?,?,?)",
-    )
-    .bind(id)
-    .bind(jogador_id)
-    .bind(url)
-    .bind(segredo)
-    .bind(agora())
-    .execute(p)
-    .await
-    .map(|_| ())
+    sqlx::query("INSERT INTO webhook (id, jogador_id, url, segredo, criado_em) VALUES (?,?,?,?,?)")
+        .bind(id)
+        .bind(jogador_id)
+        .bind(url)
+        .bind(segredo)
+        .bind(agora())
+        .execute(p)
+        .await
+        .map(|_| ())
 }
 
 pub async fn remover_webhook(p: &Pool, id: &str, jogador_id: &str) -> sqlx::Result<u64> {

@@ -54,7 +54,11 @@ pub fn cookie_vazio() -> String {
 }
 
 pub fn token_do_header(parts: &Parts) -> Option<String> {
-    let raw = parts.headers.get(axum::http::header::COOKIE)?.to_str().ok()?;
+    let raw = parts
+        .headers
+        .get(axum::http::header::COOKIE)?
+        .to_str()
+        .ok()?;
     raw.split(';')
         .filter_map(|kv| kv.split_once('='))
         .find(|(k, _)| k.trim() == COOKIE)
@@ -93,7 +97,8 @@ pub fn apelido_valido(a: &str) -> bool {
     let n = a.chars().count();
     (2..=20).contains(&n)
         && a.trim() == a
-        && a.chars().all(|c| c.is_alphanumeric() || c == '_' || c == '-' || c == ' ')
+        && a.chars()
+            .all(|c| c.is_alphanumeric() || c == '_' || c == '-' || c == ' ')
 }
 
 pub fn senha_valida(s: &str) -> bool {

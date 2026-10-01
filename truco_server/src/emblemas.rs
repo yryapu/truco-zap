@@ -15,7 +15,12 @@ pub struct Emblema {
 
 pub fn de(j: &Jogador) -> Vec<Emblema> {
     let mut v = Vec::new();
-    let em = |chave, nome, icone, motivo: String| Emblema { chave, nome, icone, motivo };
+    let em = |chave, nome, icone, motivo: String| Emblema {
+        chave,
+        nome,
+        icone,
+        motivo,
+    };
 
     // Trilha por vitórias.
     let (chave, nome, icone) = match j.vitorias {
@@ -29,10 +34,20 @@ pub fn de(j: &Jogador) -> Vec<Emblema> {
 
     // Trilha por histórico.
     if j.partidas() >= 25 {
-        v.push(em("veterano", "Veterano", "🏛️", format!("{} partidas jogadas", j.partidas())));
+        v.push(em(
+            "veterano",
+            "Veterano",
+            "🏛️",
+            format!("{} partidas jogadas", j.partidas()),
+        ));
     }
     if j.vitorias >= 5 && j.derrotas == 0 {
-        v.push(em("invicto", "Invicto", "🛡️", format!("{} vitórias, nenhuma derrota", j.vitorias)));
+        v.push(em(
+            "invicto",
+            "Invicto",
+            "🛡️",
+            format!("{} vitórias, nenhuma derrota", j.vitorias),
+        ));
     }
     if j.derrotas >= 10 && j.vitorias >= j.derrotas {
         v.push(em(
@@ -43,7 +58,12 @@ pub fn de(j: &Jogador) -> Vec<Emblema> {
         ));
     }
     if j.saldo >= 5000 {
-        v.push(em("fortuna", "Fortuna", "💰", format!("{} moedas em caixa", j.saldo)));
+        v.push(em(
+            "fortuna",
+            "Fortuna",
+            "💰",
+            format!("{} moedas em caixa", j.saldo),
+        ));
     }
     if j.saldo == 0 && j.partidas() > 0 {
         v.push(em("quebrado", "Quebrado", "🫙", "saldo zerado".into()));

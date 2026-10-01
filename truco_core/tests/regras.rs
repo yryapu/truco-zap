@@ -28,7 +28,11 @@ fn r1_baralho_sujo_tem_40_cartas_distintas() {
 #[test]
 fn d04_unicode_roundtrip_e_os_quatro_ases_do_enunciado() {
     for c in Card::baralho() {
-        assert_eq!(Card::from_unicode(c.unicode()), Some(c), "roundtrip de {c:?}");
+        assert_eq!(
+            Card::from_unicode(c.unicode()),
+            Some(c),
+            "roundtrip de {c:?}"
+        );
     }
     // Exatamente os caracteres que o enunciado mostra: 🂡 🂱 🃁 🃑
     assert_eq!(Card::new(Rank::As, Suit::Espadas).unicode(), '\u{1F0A1}');
@@ -41,11 +45,19 @@ fn d04_unicode_roundtrip_e_os_quatro_ases_do_enunciado() {
 fn d04_rejeita_o_que_nao_e_carta_do_truco() {
     // Cavaleiro (U+1F0xC) existe no Unicode e NAO existe no truco.
     for cp in [0x1F0AC, 0x1F0BC, 0x1F0CC, 0x1F0DC] {
-        assert_eq!(Card::from_unicode(char::from_u32(cp).unwrap()), None, "{cp:X}");
+        assert_eq!(
+            Card::from_unicode(char::from_u32(cp).unwrap()),
+            None,
+            "{cp:X}"
+        );
     }
     // 8, 9, 10 foram removidos do baralho sujo (R1).
     for cp in [0x1F0A8, 0x1F0A9, 0x1F0AA, 0x1F0D8] {
-        assert_eq!(Card::from_unicode(char::from_u32(cp).unwrap()), None, "{cp:X}");
+        assert_eq!(
+            Card::from_unicode(char::from_u32(cp).unwrap()),
+            None,
+            "{cp:X}"
+        );
     }
     // Costas, trunfos e lixo.
     assert_eq!(Card::from_unicode(CARTA_DE_COSTAS), None);
@@ -198,7 +210,14 @@ fn r8_tabela_de_empates_de_f1() {
 
 #[test]
 fn r8_prefixos_incompletos_nao_decidem_a_mao() {
-    for prefixo in [vec![A], vec![B], vec![T], vec![A, B], vec![B, A], vec![T, T]] {
+    for prefixo in [
+        vec![A],
+        vec![B],
+        vec![T],
+        vec![A, B],
+        vec![B, A],
+        vec![T, T],
+    ] {
         assert_eq!(
             resultado_da_mao(&prefixo),
             None,
@@ -281,17 +300,45 @@ fn r7_encoberta_proibida_na_primeira_rodada_e_permitida_depois() {
     let mut m = mesa(2);
     let c = m.mao.cartas[0][0];
     assert_eq!(
-        m.aplicar(0, Acao::Jogar { carta: c, encoberta: true }),
+        m.aplicar(
+            0,
+            Acao::Jogar {
+                carta: c,
+                encoberta: true
+            }
+        ),
         Err(Erro::EncobertaNaPrimeiraRodada)
     );
     // joga a 1a rodada normalmente
-    m.aplicar(0, Acao::Jogar { carta: c, encoberta: false }).unwrap();
+    m.aplicar(
+        0,
+        Acao::Jogar {
+            carta: c,
+            encoberta: false,
+        },
+    )
+    .unwrap();
     let c1 = m.mao.cartas[1][0];
-    m.aplicar(1, Acao::Jogar { carta: c1, encoberta: false }).unwrap();
+    m.aplicar(
+        1,
+        Acao::Jogar {
+            carta: c1,
+            encoberta: false,
+        },
+    )
+    .unwrap();
     // agora encoberta vale
     let vez = m.mao.vez;
     let cx = m.mao.cartas[vez][0];
-    let ev = m.aplicar(vez, Acao::Jogar { carta: cx, encoberta: true }).unwrap();
+    let ev = m
+        .aplicar(
+            vez,
+            Acao::Jogar {
+                carta: cx,
+                encoberta: true,
+            },
+        )
+        .unwrap();
     match &ev[0] {
         Evento::CartaJogada(j) => {
             assert!(j.encoberta);
@@ -309,18 +356,58 @@ fn r7_encoberta_nunca_vence_a_rodada() {
         &mut m,
         vira,
         &[
-            [Card::new(Rank::Quatro, Suit::Paus), Card::new(Rank::Cinco, Suit::Paus), Card::new(Rank::Seis, Suit::Paus)],
-            [Card::new(Rank::Seis, Suit::Ouros), Card::new(Rank::Sete, Suit::Ouros), Card::new(Rank::Dama, Suit::Ouros)],
+            [
+                Card::new(Rank::Quatro, Suit::Paus),
+                Card::new(Rank::Cinco, Suit::Paus),
+                Card::new(Rank::Seis, Suit::Paus),
+            ],
+            [
+                Card::new(Rank::Seis, Suit::Ouros),
+                Card::new(Rank::Sete, Suit::Ouros),
+                Card::new(Rank::Dama, Suit::Ouros),
+            ],
         ],
     );
     // rodada 1: assento 1 ganha com 6 contra 4
-    m.aplicar(0, Acao::Jogar { carta: Card::new(Rank::Quatro, Suit::Paus), encoberta: false }).unwrap();
-    m.aplicar(1, Acao::Jogar { carta: Card::new(Rank::Seis, Suit::Ouros), encoberta: false }).unwrap();
+    m.aplicar(
+        0,
+        Acao::Jogar {
+            carta: Card::new(Rank::Quatro, Suit::Paus),
+            encoberta: false,
+        },
+    )
+    .unwrap();
+    m.aplicar(
+        1,
+        Acao::Jogar {
+            carta: Card::new(Rank::Seis, Suit::Ouros),
+            encoberta: false,
+        },
+    )
+    .unwrap();
     assert_eq!(m.mao.rodadas, vec![Some(1)]);
     // rodada 2: assento 1 puxa e joga encoberto o 7; assento 0 joga o 4... perdao, o 5 (manilha)
-    m.aplicar(1, Acao::Jogar { carta: Card::new(Rank::Sete, Suit::Ouros), encoberta: true }).unwrap();
-    m.aplicar(0, Acao::Jogar { carta: Card::new(Rank::Cinco, Suit::Paus), encoberta: false }).unwrap();
-    assert_eq!(m.mao.rodadas, vec![Some(1), Some(0)], "encoberta nao ganha nem empata");
+    m.aplicar(
+        1,
+        Acao::Jogar {
+            carta: Card::new(Rank::Sete, Suit::Ouros),
+            encoberta: true,
+        },
+    )
+    .unwrap();
+    m.aplicar(
+        0,
+        Acao::Jogar {
+            carta: Card::new(Rank::Cinco, Suit::Paus),
+            encoberta: false,
+        },
+    )
+    .unwrap();
+    assert_eq!(
+        m.mao.rodadas,
+        vec![Some(1), Some(0)],
+        "encoberta nao ganha nem empata"
+    );
 }
 
 #[test]
@@ -336,20 +423,59 @@ fn r6_parceiros_com_cartas_iguais_vencem_a_rodada_em_vez_de_empatar() {
         &[
             [tres(Suit::Paus), seis(Suit::Paus), seis(Suit::Copas)],
             [seis(Suit::Ouros), tres(Suit::Copas), tres(Suit::Espadas)],
-            [tres(Suit::Ouros), seis(Suit::Espadas), Card::new(Rank::Sete, Suit::Paus)],
-            [Card::new(Rank::Sete, Suit::Ouros), Card::new(Rank::Sete, Suit::Copas), Card::new(Rank::Sete, Suit::Espadas)],
+            [
+                tres(Suit::Ouros),
+                seis(Suit::Espadas),
+                Card::new(Rank::Sete, Suit::Paus),
+            ],
+            [
+                Card::new(Rank::Sete, Suit::Ouros),
+                Card::new(Rank::Sete, Suit::Copas),
+                Card::new(Rank::Sete, Suit::Espadas),
+            ],
         ],
     );
-    m.aplicar(0, Acao::Jogar { carta: tres(Suit::Paus), encoberta: false }).unwrap();
-    m.aplicar(1, Acao::Jogar { carta: seis(Suit::Ouros), encoberta: false }).unwrap();
-    m.aplicar(2, Acao::Jogar { carta: tres(Suit::Ouros), encoberta: false }).unwrap();
-    m.aplicar(3, Acao::Jogar { carta: Card::new(Rank::Sete, Suit::Ouros), encoberta: false }).unwrap();
+    m.aplicar(
+        0,
+        Acao::Jogar {
+            carta: tres(Suit::Paus),
+            encoberta: false,
+        },
+    )
+    .unwrap();
+    m.aplicar(
+        1,
+        Acao::Jogar {
+            carta: seis(Suit::Ouros),
+            encoberta: false,
+        },
+    )
+    .unwrap();
+    m.aplicar(
+        2,
+        Acao::Jogar {
+            carta: tres(Suit::Ouros),
+            encoberta: false,
+        },
+    )
+    .unwrap();
+    m.aplicar(
+        3,
+        Acao::Jogar {
+            carta: Card::new(Rank::Sete, Suit::Ouros),
+            encoberta: false,
+        },
+    )
+    .unwrap();
     assert_eq!(
         m.mao.rodadas,
         vec![Some(0)],
         "assentos 0 e 2 (mesmo time) empataram no topo => o time vence"
     );
-    assert_eq!(m.mao.puxador, 0, "puxa quem jogou a primeira das cartas mais altas");
+    assert_eq!(
+        m.mao.puxador, 0,
+        "puxa quem jogou a primeira das cartas mais altas"
+    );
 }
 
 #[test]
@@ -364,16 +490,59 @@ fn d07_apos_empate_puxa_quem_jogou_a_primeira_carta_que_empatou() {
         &[
             [dois(Suit::Paus), dois(Suit::Copas), dois(Suit::Espadas)],
             [tres(Suit::Ouros), tres(Suit::Copas), tres(Suit::Espadas)],
-            [tres(Suit::Paus), dois(Suit::Ouros), Card::new(Rank::Sete, Suit::Paus)],
-            [Card::new(Rank::Sete, Suit::Ouros), Card::new(Rank::Sete, Suit::Copas), Card::new(Rank::Sete, Suit::Espadas)],
+            [
+                tres(Suit::Paus),
+                dois(Suit::Ouros),
+                Card::new(Rank::Sete, Suit::Paus),
+            ],
+            [
+                Card::new(Rank::Sete, Suit::Ouros),
+                Card::new(Rank::Sete, Suit::Copas),
+                Card::new(Rank::Sete, Suit::Espadas),
+            ],
         ],
     );
-    m.aplicar(0, Acao::Jogar { carta: dois(Suit::Paus), encoberta: false }).unwrap();
-    m.aplicar(1, Acao::Jogar { carta: tres(Suit::Ouros), encoberta: false }).unwrap(); // 1o do topo
-    m.aplicar(2, Acao::Jogar { carta: tres(Suit::Paus), encoberta: false }).unwrap(); // empata
-    m.aplicar(3, Acao::Jogar { carta: Card::new(Rank::Sete, Suit::Ouros), encoberta: false }).unwrap();
-    assert_eq!(m.mao.rodadas, vec![None], "3 contra 3 de times opostos = empate");
-    assert_eq!(m.mao.puxador, 1, "assento 1 jogou a primeira carta que empatou");
+    m.aplicar(
+        0,
+        Acao::Jogar {
+            carta: dois(Suit::Paus),
+            encoberta: false,
+        },
+    )
+    .unwrap();
+    m.aplicar(
+        1,
+        Acao::Jogar {
+            carta: tres(Suit::Ouros),
+            encoberta: false,
+        },
+    )
+    .unwrap(); // 1o do topo
+    m.aplicar(
+        2,
+        Acao::Jogar {
+            carta: tres(Suit::Paus),
+            encoberta: false,
+        },
+    )
+    .unwrap(); // empata
+    m.aplicar(
+        3,
+        Acao::Jogar {
+            carta: Card::new(Rank::Sete, Suit::Ouros),
+            encoberta: false,
+        },
+    )
+    .unwrap();
+    assert_eq!(
+        m.mao.rodadas,
+        vec![None],
+        "3 contra 3 de times opostos = empate"
+    );
+    assert_eq!(
+        m.mao.puxador, 1,
+        "assento 1 jogou a primeira carta que empatou"
+    );
 }
 
 #[test]
@@ -381,20 +550,47 @@ fn r9_escada_1_3_6_9_12_e_quem_corre_paga_o_valor_anterior() {
     let mut m = mesa(2);
     assert_eq!(m.mao.valor, 1);
     m.aplicar(0, Acao::Pedir).unwrap(); // truco: propoe 3
-    assert_eq!(m.fase, Fase::AguardandoResposta { pedinte: 0, respondendo: 1, proposto: 3 });
+    assert_eq!(
+        m.fase,
+        Fase::AguardandoResposta {
+            pedinte: 0,
+            respondendo: 1,
+            proposto: 3
+        }
+    );
     m.aplicar(1, Acao::Aumentar).unwrap(); // aceita 3 e propoe 6
     assert_eq!(m.mao.valor, 3);
-    assert_eq!(m.fase, Fase::AguardandoResposta { pedinte: 1, respondendo: 0, proposto: 6 });
+    assert_eq!(
+        m.fase,
+        Fase::AguardandoResposta {
+            pedinte: 1,
+            respondendo: 0,
+            proposto: 6
+        }
+    );
     m.aplicar(0, Acao::Aumentar).unwrap(); // aceita 6 e propoe 9
     assert_eq!(m.mao.valor, 6);
     m.aplicar(1, Acao::Aumentar).unwrap(); // aceita 9 e propoe 12
     assert_eq!(m.mao.valor, 9);
-    assert_eq!(m.fase, Fase::AguardandoResposta { pedinte: 1, respondendo: 0, proposto: 12 });
+    assert_eq!(
+        m.fase,
+        Fase::AguardandoResposta {
+            pedinte: 1,
+            respondendo: 0,
+            proposto: 12
+        }
+    );
     // no 12 nao se aumenta mais (R9)
     assert_eq!(m.aplicar(0, Acao::Aumentar), Err(Erro::ValorMaximoAtingido));
     // correndo do 12, quem pediu leva 9 — o valor anterior
     let ev = m.aplicar(0, Acao::Correr).unwrap();
-    assert!(ev.contains(&Evento::Correu { time_que_correu: 0, pontos: 9 }), "{ev:?}");
+    assert!(
+        ev.contains(&Evento::Correu {
+            time_que_correu: 0,
+            pontos: 9
+        }),
+        "{ev:?}"
+    );
     assert_eq!(m.placar, [0, 9]);
 }
 
@@ -404,12 +600,32 @@ fn r9_mesmo_time_nao_pode_pedir_duas_vezes_seguidas() {
     m.aplicar(0, Acao::Pedir).unwrap();
     m.aplicar(1, Acao::Aceitar).unwrap();
     assert_eq!(m.mao.valor, 3);
-    assert_eq!(m.aplicar(0, Acao::Pedir), Err(Erro::SeuTimeFezOUltimoPedido));
+    assert_eq!(
+        m.aplicar(0, Acao::Pedir),
+        Err(Erro::SeuTimeFezOUltimoPedido)
+    );
     // o adversario pode
-    assert!(m.aplicar(1, Acao::Pedir).is_err(), "nao e a vez do assento 1 jogar/pedir");
-    m.aplicar(0, Acao::Jogar { carta: m.mao.cartas[0][0], encoberta: false }).unwrap();
+    assert!(
+        m.aplicar(1, Acao::Pedir).is_err(),
+        "nao e a vez do assento 1 jogar/pedir"
+    );
+    m.aplicar(
+        0,
+        Acao::Jogar {
+            carta: m.mao.cartas[0][0],
+            encoberta: false,
+        },
+    )
+    .unwrap();
     m.aplicar(1, Acao::Pedir).unwrap();
-    assert_eq!(m.fase, Fase::AguardandoResposta { pedinte: 1, respondendo: 0, proposto: 6 });
+    assert_eq!(
+        m.fase,
+        Fase::AguardandoResposta {
+            pedinte: 1,
+            respondendo: 0,
+            proposto: 6
+        }
+    );
 }
 
 #[test]
@@ -449,21 +665,75 @@ fn r10_mao_de_onze_aceita_e_ganha_vence_a_partida_com_3() {
     m.mao.vez = 0;
     m.aplicar(0, Acao::MaoDeOnzeJogar).unwrap();
     assert_eq!(m.fase, Fase::Jogando);
-    assert_eq!(m.aplicar(0, Acao::Pedir), Err(Erro::TrucoProibidoMaoDeOnze), "sem truco na mao de onze");
+    assert_eq!(
+        m.aplicar(0, Acao::Pedir),
+        Err(Erro::TrucoProibidoMaoDeOnze),
+        "sem truco na mao de onze"
+    );
     // forca o time 0 a ganhar as duas primeiras rodadas
     let vira = Card::new(Rank::Quatro, Suit::Ouros);
-    montar(&mut m, vira, &[
-        [Card::new(Rank::Cinco, Suit::Paus), Card::new(Rank::Cinco, Suit::Copas), Card::new(Rank::Quatro, Suit::Paus)],
-        [Card::new(Rank::Sete, Suit::Ouros), Card::new(Rank::Seis, Suit::Ouros), Card::new(Rank::Cinco, Suit::Ouros)],
-    ]);
-    m.aplicar(0, Acao::Jogar { carta: Card::new(Rank::Cinco, Suit::Paus), encoberta: false }).unwrap();
-    m.aplicar(1, Acao::Jogar { carta: Card::new(Rank::Sete, Suit::Ouros), encoberta: false }).unwrap();
-    let ev = m.aplicar(0, Acao::Jogar { carta: Card::new(Rank::Cinco, Suit::Copas), encoberta: false })
-        .and_then(|mut e| { e.extend(m.aplicar(1, Acao::Jogar { carta: Card::new(Rank::Seis, Suit::Ouros), encoberta: false })?); Ok(e) })
+    montar(
+        &mut m,
+        vira,
+        &[
+            [
+                Card::new(Rank::Cinco, Suit::Paus),
+                Card::new(Rank::Cinco, Suit::Copas),
+                Card::new(Rank::Quatro, Suit::Paus),
+            ],
+            [
+                Card::new(Rank::Sete, Suit::Ouros),
+                Card::new(Rank::Seis, Suit::Ouros),
+                Card::new(Rank::Cinco, Suit::Ouros),
+            ],
+        ],
+    );
+    m.aplicar(
+        0,
+        Acao::Jogar {
+            carta: Card::new(Rank::Cinco, Suit::Paus),
+            encoberta: false,
+        },
+    )
+    .unwrap();
+    m.aplicar(
+        1,
+        Acao::Jogar {
+            carta: Card::new(Rank::Sete, Suit::Ouros),
+            encoberta: false,
+        },
+    )
+    .unwrap();
+    let ev = m
+        .aplicar(
+            0,
+            Acao::Jogar {
+                carta: Card::new(Rank::Cinco, Suit::Copas),
+                encoberta: false,
+            },
+        )
+        .and_then(|mut e| {
+            e.extend(m.aplicar(
+                1,
+                Acao::Jogar {
+                    carta: Card::new(Rank::Seis, Suit::Ouros),
+                    encoberta: false,
+                },
+            )?);
+            Ok(e)
+        })
         .unwrap();
     assert_eq!(m.placar, [14, 0]);
-    assert!(matches!(m.fase, Fase::PartidaEncerrada { vencedor: 0 }), "{:?}", m.fase);
-    assert!(ev.iter().any(|e| matches!(e, Evento::PartidaTerminou { vencedor: 0, .. })), "{ev:?}");
+    assert!(
+        matches!(m.fase, Fase::PartidaEncerrada { vencedor: 0 }),
+        "{:?}",
+        m.fase
+    );
+    assert!(
+        ev.iter()
+            .any(|e| matches!(e, Evento::PartidaTerminou { vencedor: 0, .. })),
+        "{ev:?}"
+    );
 }
 
 #[test]
@@ -479,15 +749,59 @@ fn r11_mao_de_ferro_vale_1_sem_truco_e_quem_ganha_a_mao_ganha_a_partida() {
     assert_eq!(m.aplicar(0, Acao::Pedir), Err(Erro::TrucoProibidoMaoDeOnze));
     assert!(!m.pode_ver_cartas_do_parceiro(0));
     let vira = Card::new(Rank::Quatro, Suit::Ouros);
-    montar(&mut m, vira, &[
-        [Card::new(Rank::Cinco, Suit::Paus), Card::new(Rank::Cinco, Suit::Copas), Card::new(Rank::Quatro, Suit::Paus)],
-        [Card::new(Rank::Sete, Suit::Ouros), Card::new(Rank::Seis, Suit::Ouros), Card::new(Rank::Cinco, Suit::Ouros)],
-    ]);
-    m.aplicar(0, Acao::Jogar { carta: Card::new(Rank::Cinco, Suit::Paus), encoberta: false }).unwrap();
-    m.aplicar(1, Acao::Jogar { carta: Card::new(Rank::Sete, Suit::Ouros), encoberta: false }).unwrap();
-    m.aplicar(0, Acao::Jogar { carta: Card::new(Rank::Cinco, Suit::Copas), encoberta: false }).unwrap();
-    m.aplicar(1, Acao::Jogar { carta: Card::new(Rank::Seis, Suit::Ouros), encoberta: false }).unwrap();
-    assert!(matches!(m.fase, Fase::PartidaEncerrada { vencedor: 0 }), "{:?}", m.fase);
+    montar(
+        &mut m,
+        vira,
+        &[
+            [
+                Card::new(Rank::Cinco, Suit::Paus),
+                Card::new(Rank::Cinco, Suit::Copas),
+                Card::new(Rank::Quatro, Suit::Paus),
+            ],
+            [
+                Card::new(Rank::Sete, Suit::Ouros),
+                Card::new(Rank::Seis, Suit::Ouros),
+                Card::new(Rank::Cinco, Suit::Ouros),
+            ],
+        ],
+    );
+    m.aplicar(
+        0,
+        Acao::Jogar {
+            carta: Card::new(Rank::Cinco, Suit::Paus),
+            encoberta: false,
+        },
+    )
+    .unwrap();
+    m.aplicar(
+        1,
+        Acao::Jogar {
+            carta: Card::new(Rank::Sete, Suit::Ouros),
+            encoberta: false,
+        },
+    )
+    .unwrap();
+    m.aplicar(
+        0,
+        Acao::Jogar {
+            carta: Card::new(Rank::Cinco, Suit::Copas),
+            encoberta: false,
+        },
+    )
+    .unwrap();
+    m.aplicar(
+        1,
+        Acao::Jogar {
+            carta: Card::new(Rank::Seis, Suit::Ouros),
+            encoberta: false,
+        },
+    )
+    .unwrap();
+    assert!(
+        matches!(m.fase, Fase::PartidaEncerrada { vencedor: 0 }),
+        "{:?}",
+        m.fase
+    );
     assert_eq!(m.placar, [12, 11]);
 }
 
@@ -502,16 +816,48 @@ fn r12_partida_acaba_ao_chegar_ou_passar_de_12() {
     m.aplicar(0, Acao::Pedir).unwrap();
     m.aplicar(1, Acao::Aceitar).unwrap();
     let vira = Card::new(Rank::Quatro, Suit::Ouros);
-    montar(&mut m, vira, &[
-        [Card::new(Rank::Cinco, Suit::Paus), Card::new(Rank::Cinco, Suit::Copas), Card::new(Rank::Quatro, Suit::Paus)],
-        [Card::new(Rank::Sete, Suit::Ouros), Card::new(Rank::Seis, Suit::Ouros), Card::new(Rank::Cinco, Suit::Ouros)],
-    ]);
+    montar(
+        &mut m,
+        vira,
+        &[
+            [
+                Card::new(Rank::Cinco, Suit::Paus),
+                Card::new(Rank::Cinco, Suit::Copas),
+                Card::new(Rank::Quatro, Suit::Paus),
+            ],
+            [
+                Card::new(Rank::Sete, Suit::Ouros),
+                Card::new(Rank::Seis, Suit::Ouros),
+                Card::new(Rank::Cinco, Suit::Ouros),
+            ],
+        ],
+    );
     for (c0, c1) in [
-        (Card::new(Rank::Cinco, Suit::Paus), Card::new(Rank::Sete, Suit::Ouros)),
-        (Card::new(Rank::Cinco, Suit::Copas), Card::new(Rank::Seis, Suit::Ouros)),
+        (
+            Card::new(Rank::Cinco, Suit::Paus),
+            Card::new(Rank::Sete, Suit::Ouros),
+        ),
+        (
+            Card::new(Rank::Cinco, Suit::Copas),
+            Card::new(Rank::Seis, Suit::Ouros),
+        ),
     ] {
-        m.aplicar(0, Acao::Jogar { carta: c0, encoberta: false }).unwrap();
-        m.aplicar(1, Acao::Jogar { carta: c1, encoberta: false }).unwrap();
+        m.aplicar(
+            0,
+            Acao::Jogar {
+                carta: c0,
+                encoberta: false,
+            },
+        )
+        .unwrap();
+        m.aplicar(
+            1,
+            Acao::Jogar {
+                carta: c1,
+                encoberta: false,
+            },
+        )
+        .unwrap();
     }
     assert_eq!(m.placar, [12, 9]);
     assert!(matches!(m.fase, Fase::PartidaEncerrada { vencedor: 0 }));
@@ -548,15 +894,41 @@ fn seguranca_nao_da_para_jogar_carta_que_nao_esta_na_mao() {
         .find(|c| !minha.contains(c) && !m.mao.cartas[1].contains(c))
         .unwrap();
     assert_eq!(
-        m.aplicar(0, Acao::Jogar { carta: alheia, encoberta: false }),
+        m.aplicar(
+            0,
+            Acao::Jogar {
+                carta: alheia,
+                encoberta: false
+            }
+        ),
         Err(Erro::CartaNaoEstaNaSuaMao)
     );
     // e nem jogar a mesma carta duas vezes
-    m.aplicar(0, Acao::Jogar { carta: minha[0], encoberta: false }).unwrap();
-    m.aplicar(1, Acao::Jogar { carta: m.mao.cartas[1][0], encoberta: false }).unwrap();
+    m.aplicar(
+        0,
+        Acao::Jogar {
+            carta: minha[0],
+            encoberta: false,
+        },
+    )
+    .unwrap();
+    m.aplicar(
+        1,
+        Acao::Jogar {
+            carta: m.mao.cartas[1][0],
+            encoberta: false,
+        },
+    )
+    .unwrap();
     let vez = m.mao.vez;
     assert_eq!(
-        m.aplicar(vez, Acao::Jogar { carta: minha[0], encoberta: false }),
+        m.aplicar(
+            vez,
+            Acao::Jogar {
+                carta: minha[0],
+                encoberta: false
+            }
+        ),
         Err(Erro::CartaNaoEstaNaSuaMao)
     );
 }
@@ -568,7 +940,13 @@ fn seguranca_so_quem_tem_a_vez_joga() {
     for a in 0..4 {
         if a != vez {
             assert_eq!(
-                m.aplicar(a, Acao::Jogar { carta: m.mao.cartas[a][0], encoberta: false }),
+                m.aplicar(
+                    a,
+                    Acao::Jogar {
+                        carta: m.mao.cartas[a][0],
+                        encoberta: false
+                    }
+                ),
                 Err(Erro::NaoEhSuaVez),
                 "assento {a} nao tem a vez"
             );
@@ -612,7 +990,8 @@ fn fuzz_partidas_completas_nunca_travam_nem_produzem_placar_impossivel() {
                     assert!(
                         m.placar[vencedor as usize] >= PONTOS_PARA_VENCER
                             || m.mao.tipo == TipoMao::MaoDeFerro,
-                        "semente {semente}: venceu com placar {:?}", m.placar
+                        "semente {semente}: venceu com placar {:?}",
+                        m.placar
                     );
                     break;
                 }
@@ -621,10 +1000,18 @@ fn fuzz_partidas_completas_nunca_travam_nem_produzem_placar_impossivel() {
                 }
                 Fase::DecisaoMaoDeOnze { time } => {
                     let a = (0..n).find(|a| time_do_assento(*a) == time).unwrap();
-                    let acao = if rng.gen_bool(0.7) { Acao::MaoDeOnzeJogar } else { Acao::MaoDeOnzeCorrer };
+                    let acao = if rng.gen_bool(0.7) {
+                        Acao::MaoDeOnzeJogar
+                    } else {
+                        Acao::MaoDeOnzeCorrer
+                    };
                     m.aplicar(a, acao).unwrap();
                 }
-                Fase::AguardandoResposta { respondendo, proposto, .. } => {
+                Fase::AguardandoResposta {
+                    respondendo,
+                    proposto,
+                    ..
+                } => {
                     let a = (0..n).find(|a| time_do_assento(*a) == respondendo).unwrap();
                     // R18: aumentar é ilegal se aceitar já venceria. O fuzz respeita as regras;
                     // quem testa a recusa é `r18_...` abaixo.
@@ -648,7 +1035,10 @@ fn fuzz_partidas_completas_nunca_travam_nem_produzem_placar_impossivel() {
                         continue;
                     }
                     let mao = m.mao.cartas[a].clone();
-                    assert!(!mao.is_empty(), "semente {semente}: assento {a} sem cartas na fase Jogando");
+                    assert!(
+                        !mao.is_empty(),
+                        "semente {semente}: assento {a} sem cartas na fase Jogando"
+                    );
                     let carta = mao[rng.gen_range(0..mao.len())];
                     let encoberta = !m.mao.rodadas.is_empty() && rng.gen_bool(0.2);
                     m.aplicar(a, Acao::Jogar { carta, encoberta }).unwrap();
@@ -656,7 +1046,11 @@ fn fuzz_partidas_completas_nunca_travam_nem_produzem_placar_impossivel() {
             }
         }
         // Só 0, 1, 3, 6, 9 ou 12 podem ter sido somados; o placar nunca passa de 23.
-        assert!(m.placar[0] <= 23 && m.placar[1] <= 23, "semente {semente}: {:?}", m.placar);
+        assert!(
+            m.placar[0] <= 23 && m.placar[1] <= 23,
+            "semente {semente}: {:?}",
+            m.placar
+        );
     }
 }
 
@@ -670,7 +1064,8 @@ fn r2_a_ordem_base_inclui_o_par_quatro_menor_que_cinco() {
     // relação 4 < 5 da ordem base nunca era afirmada por ninguém.
     let vira = Card::new(Rank::Valete, Suit::Ouros); // manilha = K, nem 4 nem 5 saem
     assert!(
-        Card::new(Rank::Quatro, Suit::Paus).forca(vira) < Card::new(Rank::Cinco, Suit::Ouros).forca(vira),
+        Card::new(Rank::Quatro, Suit::Paus).forca(vira)
+            < Card::new(Rank::Cinco, Suit::Ouros).forca(vira),
         "4 tem de valer menos que 5"
     );
     // E a cadeia inteira, numa mao em que nenhum dos dez ranks e manilha... impossivel:
@@ -682,7 +1077,9 @@ fn r2_a_ordem_base_inclui_o_par_quatro_menor_que_cinco() {
         for par in base.windows(2) {
             assert!(
                 Card::new(par[0], Suit::Paus).forca(v) < Card::new(par[1], Suit::Ouros).forca(v),
-                "vira {vira_rank:?}: {:?} < {:?}", par[0], par[1]
+                "vira {vira_rank:?}: {:?} < {:?}",
+                par[0],
+                par[1]
             );
         }
     }
@@ -692,23 +1089,74 @@ fn r2_a_ordem_base_inclui_o_par_quatro_menor_que_cinco() {
 fn r7_rodada_inteira_encoberta_empata_e_nao_trava() {
     let mut m = mesa(2);
     let vira = Card::new(Rank::Quatro, Suit::Ouros);
-    montar(&mut m, vira, &[
-        [Card::new(Rank::Tres, Suit::Paus), Card::new(Rank::Dois, Suit::Paus), Card::new(Rank::Sete, Suit::Paus)],
-        [Card::new(Rank::Tres, Suit::Ouros), Card::new(Rank::Dois, Suit::Ouros), Card::new(Rank::Sete, Suit::Ouros)],
-    ]);
+    montar(
+        &mut m,
+        vira,
+        &[
+            [
+                Card::new(Rank::Tres, Suit::Paus),
+                Card::new(Rank::Dois, Suit::Paus),
+                Card::new(Rank::Sete, Suit::Paus),
+            ],
+            [
+                Card::new(Rank::Tres, Suit::Ouros),
+                Card::new(Rank::Dois, Suit::Ouros),
+                Card::new(Rank::Sete, Suit::Ouros),
+            ],
+        ],
+    );
     // Rodada 1 empatada (3 contra 3, nenhum e manilha).
-    m.aplicar(0, Acao::Jogar { carta: Card::new(Rank::Tres, Suit::Paus), encoberta: false }).unwrap();
-    m.aplicar(1, Acao::Jogar { carta: Card::new(Rank::Tres, Suit::Ouros), encoberta: false }).unwrap();
+    m.aplicar(
+        0,
+        Acao::Jogar {
+            carta: Card::new(Rank::Tres, Suit::Paus),
+            encoberta: false,
+        },
+    )
+    .unwrap();
+    m.aplicar(
+        1,
+        Acao::Jogar {
+            carta: Card::new(Rank::Tres, Suit::Ouros),
+            encoberta: false,
+        },
+    )
+    .unwrap();
     assert_eq!(m.mao.rodadas, vec![None]);
     let puxador = m.mao.puxador;
     // Rodada 2: os DOIS jogam encoberto. Ninguem vence; quem puxou a rodada puxa a proxima.
     let a = m.mao.vez;
-    m.aplicar(a, Acao::Jogar { carta: m.mao.cartas[a][0], encoberta: true }).unwrap();
+    m.aplicar(
+        a,
+        Acao::Jogar {
+            carta: m.mao.cartas[a][0],
+            encoberta: true,
+        },
+    )
+    .unwrap();
     let b = m.mao.vez;
-    m.aplicar(b, Acao::Jogar { carta: m.mao.cartas[b][0], encoberta: true }).unwrap();
-    assert_eq!(m.mao.rodadas, vec![None, None], "tudo encoberto nao da vencedor");
-    assert_eq!(m.mao.puxador, puxador, "quem puxou a rodada toda encoberta puxa a proxima");
-    assert_eq!(m.fase, Fase::Jogando, "a mao continua para a terceira rodada");
+    m.aplicar(
+        b,
+        Acao::Jogar {
+            carta: m.mao.cartas[b][0],
+            encoberta: true,
+        },
+    )
+    .unwrap();
+    assert_eq!(
+        m.mao.rodadas,
+        vec![None, None],
+        "tudo encoberto nao da vencedor"
+    );
+    assert_eq!(
+        m.mao.puxador, puxador,
+        "quem puxou a rodada toda encoberta puxa a proxima"
+    );
+    assert_eq!(
+        m.fase,
+        Fase::Jogando,
+        "a mao continua para a terceira rodada"
+    );
 }
 
 #[test]
@@ -717,20 +1165,55 @@ fn r8_tres_rodadas_empatadas_pelo_match_nao_creditam_ponto_a_ninguem() {
     // que e onde `pontuar` poderia creditar pontos numa mao empatada.
     let mut m = mesa(2);
     let vira = Card::new(Rank::Quatro, Suit::Ouros); // manilha = 5, nenhuma em jogo
-    montar(&mut m, vira, &[
-        [Card::new(Rank::Tres, Suit::Paus), Card::new(Rank::Dois, Suit::Paus), Card::new(Rank::Sete, Suit::Paus)],
-        [Card::new(Rank::Tres, Suit::Ouros), Card::new(Rank::Dois, Suit::Ouros), Card::new(Rank::Sete, Suit::Ouros)],
-    ]);
+    montar(
+        &mut m,
+        vira,
+        &[
+            [
+                Card::new(Rank::Tres, Suit::Paus),
+                Card::new(Rank::Dois, Suit::Paus),
+                Card::new(Rank::Sete, Suit::Paus),
+            ],
+            [
+                Card::new(Rank::Tres, Suit::Ouros),
+                Card::new(Rank::Dois, Suit::Ouros),
+                Card::new(Rank::Sete, Suit::Ouros),
+            ],
+        ],
+    );
     for (c0, c1) in [
-        (Card::new(Rank::Tres, Suit::Paus), Card::new(Rank::Tres, Suit::Ouros)),
-        (Card::new(Rank::Dois, Suit::Paus), Card::new(Rank::Dois, Suit::Ouros)),
-        (Card::new(Rank::Sete, Suit::Paus), Card::new(Rank::Sete, Suit::Ouros)),
+        (
+            Card::new(Rank::Tres, Suit::Paus),
+            Card::new(Rank::Tres, Suit::Ouros),
+        ),
+        (
+            Card::new(Rank::Dois, Suit::Paus),
+            Card::new(Rank::Dois, Suit::Ouros),
+        ),
+        (
+            Card::new(Rank::Sete, Suit::Paus),
+            Card::new(Rank::Sete, Suit::Ouros),
+        ),
     ] {
         let a = m.mao.vez;
         let (primeira, segunda) = if a == 0 { (c0, c1) } else { (c1, c0) };
-        m.aplicar(a, Acao::Jogar { carta: primeira, encoberta: false }).unwrap();
+        m.aplicar(
+            a,
+            Acao::Jogar {
+                carta: primeira,
+                encoberta: false,
+            },
+        )
+        .unwrap();
         let b = m.mao.vez;
-        m.aplicar(b, Acao::Jogar { carta: segunda, encoberta: false }).unwrap();
+        m.aplicar(
+            b,
+            Acao::Jogar {
+                carta: segunda,
+                encoberta: false,
+            },
+        )
+        .unwrap();
     }
     assert_eq!(m.mao.rodadas, vec![None, None, None]);
     assert_eq!(m.placar, [0, 0], "mao empatada nao credita ponto a ninguem");
@@ -746,25 +1229,64 @@ fn r11_mao_de_ferro_empatada_leva_a_outra_mao_de_ferro() {
     m.mao.puxador = 0;
     m.mao.vez = 0;
     let vira = Card::new(Rank::Quatro, Suit::Ouros);
-    montar(&mut m, vira, &[
-        [Card::new(Rank::Tres, Suit::Paus), Card::new(Rank::Dois, Suit::Paus), Card::new(Rank::Sete, Suit::Paus)],
-        [Card::new(Rank::Tres, Suit::Ouros), Card::new(Rank::Dois, Suit::Ouros), Card::new(Rank::Sete, Suit::Ouros)],
-    ]);
+    montar(
+        &mut m,
+        vira,
+        &[
+            [
+                Card::new(Rank::Tres, Suit::Paus),
+                Card::new(Rank::Dois, Suit::Paus),
+                Card::new(Rank::Sete, Suit::Paus),
+            ],
+            [
+                Card::new(Rank::Tres, Suit::Ouros),
+                Card::new(Rank::Dois, Suit::Ouros),
+                Card::new(Rank::Sete, Suit::Ouros),
+            ],
+        ],
+    );
     for (c0, c1) in [
-        (Card::new(Rank::Tres, Suit::Paus), Card::new(Rank::Tres, Suit::Ouros)),
-        (Card::new(Rank::Dois, Suit::Paus), Card::new(Rank::Dois, Suit::Ouros)),
-        (Card::new(Rank::Sete, Suit::Paus), Card::new(Rank::Sete, Suit::Ouros)),
+        (
+            Card::new(Rank::Tres, Suit::Paus),
+            Card::new(Rank::Tres, Suit::Ouros),
+        ),
+        (
+            Card::new(Rank::Dois, Suit::Paus),
+            Card::new(Rank::Dois, Suit::Ouros),
+        ),
+        (
+            Card::new(Rank::Sete, Suit::Paus),
+            Card::new(Rank::Sete, Suit::Ouros),
+        ),
     ] {
         let a = m.mao.vez;
         let (p, q) = if a == 0 { (c0, c1) } else { (c1, c0) };
-        m.aplicar(a, Acao::Jogar { carta: p, encoberta: false }).unwrap();
+        m.aplicar(
+            a,
+            Acao::Jogar {
+                carta: p,
+                encoberta: false,
+            },
+        )
+        .unwrap();
         let b = m.mao.vez;
-        m.aplicar(b, Acao::Jogar { carta: q, encoberta: false }).unwrap();
+        m.aplicar(
+            b,
+            Acao::Jogar {
+                carta: q,
+                encoberta: false,
+            },
+        )
+        .unwrap();
     }
     assert_eq!(m.placar, [11, 11], "ferro empatada nao decide nada");
     assert_eq!(m.fase, Fase::MaoEncerrada, "a partida NAO acabou");
     m.nova_mao(&mut StdRng::seed_from_u64(6));
-    assert_eq!(m.mao.tipo, TipoMao::MaoDeFerro, "joga-se outra mao de ferro");
+    assert_eq!(
+        m.mao.tipo,
+        TipoMao::MaoDeFerro,
+        "joga-se outra mao de ferro"
+    );
 }
 
 #[test]
@@ -773,9 +1295,22 @@ fn r9_r10_qualquer_um_da_dupla_responde_em_2x2() {
     // Todos os testes de truco usavam mesa(2), onde "qualquer um do time" e um so.
     let mut m = mesa(4);
     m.aplicar(0, Acao::Pedir).unwrap();
-    assert_eq!(m.fase, Fase::AguardandoResposta { pedinte: 0, respondendo: 1, proposto: 3 });
-    assert!(m.pode_agir(1) && m.pode_agir(3), "os dois do time que responde podem");
-    assert!(!m.pode_agir(0) && !m.pode_agir(2), "o time que pediu nao responde");
+    assert_eq!(
+        m.fase,
+        Fase::AguardandoResposta {
+            pedinte: 0,
+            respondendo: 1,
+            proposto: 3
+        }
+    );
+    assert!(
+        m.pode_agir(1) && m.pode_agir(3),
+        "os dois do time que responde podem"
+    );
+    assert!(
+        !m.pode_agir(0) && !m.pode_agir(2),
+        "o time que pediu nao responde"
+    );
     // O assento 3 (parceiro do 1, e nao o proximo a jogar) responde, e vale.
     m.aplicar(3, Acao::Aceitar).unwrap();
     assert_eq!(m.mao.valor, 3);
@@ -804,20 +1339,30 @@ fn r10_r17_quem_decide_ve_a_mao_do_parceiro_e_so_quem_decide() {
     // R17: ao responder um pedido, a dupla que responde ve as cartas um do outro.
     let mut m = mesa(4);
     for a in 0..4 {
-        assert!(!m.pode_ver_cartas_do_parceiro(a), "fora de decisao ninguem ve nada");
+        assert!(
+            !m.pode_ver_cartas_do_parceiro(a),
+            "fora de decisao ninguem ve nada"
+        );
     }
     m.aplicar(0, Acao::Pedir).unwrap();
-    assert!(m.pode_ver_cartas_do_parceiro(1) && m.pode_ver_cartas_do_parceiro(3),
-            "o time que responde ao truco pode ver (R17)");
-    assert!(!m.pode_ver_cartas_do_parceiro(0) && !m.pode_ver_cartas_do_parceiro(2),
-            "quem pediu nao ve — ainda");
+    assert!(
+        m.pode_ver_cartas_do_parceiro(1) && m.pode_ver_cartas_do_parceiro(3),
+        "o time que responde ao truco pode ver (R17)"
+    );
+    assert!(
+        !m.pode_ver_cartas_do_parceiro(0) && !m.pode_ver_cartas_do_parceiro(2),
+        "quem pediu nao ve — ainda"
+    );
     // F1: ao pedirem 6, o time que pediu truco passa a poder ver antes de responder.
     m.aplicar(1, Acao::Aumentar).unwrap();
     assert!(m.pode_ver_cartas_do_parceiro(0) && m.pode_ver_cartas_do_parceiro(2));
     assert!(!m.pode_ver_cartas_do_parceiro(1) && !m.pode_ver_cartas_do_parceiro(3));
     m.aplicar(0, Acao::Aceitar).unwrap();
     for a in 0..4 {
-        assert!(!m.pode_ver_cartas_do_parceiro(a), "resolvido o pedido, ninguem mais ve");
+        assert!(
+            !m.pode_ver_cartas_do_parceiro(a),
+            "resolvido o pedido, ninguem mais ve"
+        );
     }
 }
 
@@ -827,11 +1372,21 @@ fn r18_ilegal_aumentar_se_aceitar_ja_vencesse_a_partida() {
     // porque aceitar 6 ja lhe daria 13.
     let mut m = mesa(2);
     m.placar = [7, 5];
-    m.aplicar(0, Acao::Pedir).unwrap();            // A propoe 3
-    m.aplicar(1, Acao::Aumentar).unwrap();         // B aceita 3 e propoe 6
+    m.aplicar(0, Acao::Pedir).unwrap(); // A propoe 3
+    m.aplicar(1, Acao::Aumentar).unwrap(); // B aceita 3 e propoe 6
     assert_eq!(m.mao.valor, 3);
-    assert_eq!(m.fase, Fase::AguardandoResposta { pedinte: 1, respondendo: 0, proposto: 6 });
-    assert_eq!(m.aplicar(0, Acao::Aumentar), Err(Erro::AumentoDesnecessario));
+    assert_eq!(
+        m.fase,
+        Fase::AguardandoResposta {
+            pedinte: 1,
+            respondendo: 0,
+            proposto: 6
+        }
+    );
+    assert_eq!(
+        m.aplicar(0, Acao::Aumentar),
+        Err(Erro::AumentoDesnecessario)
+    );
     // Aceitar e correr continuam legais.
     m.aplicar(0, Acao::Aceitar).unwrap();
     assert_eq!(m.mao.valor, 6);
@@ -841,7 +1396,10 @@ fn r18_ilegal_aumentar_se_aceitar_ja_vencesse_a_partida() {
     m.placar = [0, 0];
     m.aplicar(0, Acao::Pedir).unwrap();
     m.aplicar(1, Acao::Aumentar).unwrap();
-    assert!(m.aplicar(0, Acao::Aumentar).is_ok(), "0x0: aumentar para 9 e legal");
+    assert!(
+        m.aplicar(0, Acao::Aumentar).is_ok(),
+        "0x0: aumentar para 9 e legal"
+    );
 }
 
 #[test]
@@ -853,13 +1411,26 @@ fn seguranca_assento_inexistente_nao_age_nem_pela_paridade() {
     assert_eq!(m.aplicar(99, Acao::Correr), Err(Erro::AssentoInexistente));
     assert_eq!(m.aplicar(3, Acao::Aceitar), Err(Erro::AssentoInexistente));
     assert_eq!(m.placar, [0, 0], "nada aconteceu");
-    assert_eq!(m.fase, Fase::AguardandoResposta { pedinte: 0, respondendo: 1, proposto: 3 });
+    assert_eq!(
+        m.fase,
+        Fase::AguardandoResposta {
+            pedinte: 0,
+            respondendo: 1,
+            proposto: 3
+        }
+    );
 
     let mut m = mesa(2);
     m.placar = [11, 0];
     m.nova_mao(&mut StdRng::seed_from_u64(1));
-    assert_eq!(m.aplicar(2, Acao::MaoDeOnzeCorrer), Err(Erro::AssentoInexistente));
-    assert_eq!(m.aplicar(4, Acao::MaoDeOnzeJogar), Err(Erro::AssentoInexistente));
+    assert_eq!(
+        m.aplicar(2, Acao::MaoDeOnzeCorrer),
+        Err(Erro::AssentoInexistente)
+    );
+    assert_eq!(
+        m.aplicar(4, Acao::MaoDeOnzeJogar),
+        Err(Erro::AssentoInexistente)
+    );
 }
 
 #[test]
@@ -880,5 +1451,9 @@ fn r16_d11_o_1x1_e_a_mesma_regra_com_time_de_um() {
     m.placar = [11, 11];
     m.nova_mao(&mut StdRng::seed_from_u64(4));
     assert_eq!(m.mao.tipo, TipoMao::MaoDeFerro);
-    assert_eq!(m.fase, Fase::Jogando, "ninguem decide na mao de ferro, nem no 1x1");
+    assert_eq!(
+        m.fase,
+        Fase::Jogando,
+        "ninguem decide na mao de ferro, nem no 1x1"
+    );
 }

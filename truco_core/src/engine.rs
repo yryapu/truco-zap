@@ -31,7 +31,9 @@ pub enum TipoMao {
 #[serde(rename_all = "snake_case")]
 pub enum Fase {
     /// R10: esperando a dupla de 11 dizer se joga ou corre.
-    DecisaoMaoDeOnze { time: u8 },
+    DecisaoMaoDeOnze {
+        time: u8,
+    },
     /// Alguém tem a vez de jogar uma carta.
     Jogando,
     /// R9: houve pedido, o time `respondendo` deve correr, aceitar ou aumentar.
@@ -42,7 +44,9 @@ pub enum Fase {
     },
     /// A mão acabou; o servidor chama [`Match::nova_mao`] quando quiser dar a próxima.
     MaoEncerrada,
-    PartidaEncerrada { vencedor: u8 },
+    PartidaEncerrada {
+        vencedor: u8,
+    },
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -56,7 +60,10 @@ pub struct Jogada {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", tag = "acao")]
 pub enum Acao {
-    Jogar { carta: Card, encoberta: bool },
+    Jogar {
+        carta: Card,
+        encoberta: bool,
+    },
     /// Truco, 6, 9 ou 12 — a escada decide qual, não o cliente (R9).
     Pedir,
     Aceitar,
@@ -255,9 +262,7 @@ impl Match {
     pub fn pode_agir(&self, assento: usize) -> bool {
         match self.fase {
             Fase::Jogando => self.mao.vez == assento,
-            Fase::AguardandoResposta { respondendo, .. } => {
-                time_do_assento(assento) == respondendo
-            }
+            Fase::AguardandoResposta { respondendo, .. } => time_do_assento(assento) == respondendo,
             Fase::DecisaoMaoDeOnze { time } => time_do_assento(assento) == time,
             Fase::MaoEncerrada | Fase::PartidaEncerrada { .. } => false,
         }
