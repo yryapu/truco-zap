@@ -4,7 +4,7 @@
     "pesquisa": "https://github.com/yryapu/poliorketikos-truco-zap",
     "operacional": "https://github.com/yryapu/truco-zap"
   },
-  "commit_final": "fc56ae64c4ae32939af2db0611138119bfa713bd",
+  "commit_final": "9b11cad58e25c90bf31f52309b9aa358a13f0cb2",
   "como_rodar": [
     "docker compose up -d --build   # sobe tudo; abra http://localhost:18080 (TRUCO_PORTA=9090 muda a porta do host)",
     "cargo test   # 48 testes: 39 de regra do truco paulista contra as fontes citadas + 9 de emblemas/webhook",
