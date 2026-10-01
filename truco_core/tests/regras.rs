@@ -518,13 +518,25 @@ fn r12_partida_acaba_ao_chegar_ou_passar_de_12() {
 }
 
 #[test]
-fn r13_o_mao_rotaciona_um_assento_por_mao() {
+fn r13_d16_o_mao_rotaciona_um_assento_contra_a_ordem_de_jogo() {
+    // F2: "o jogador que começa a primeira rodada é sempre o da esquerda ao que começou a mão
+    // anterior", e a ordem de jogo é anti-horária (o próximo é o da direita, +1). Logo o mão
+    // anda -1. F1 diz +1; a divergência está resolvida em D16 a favor de F2.
+    //
+    // O teste antigo afirmava `+1` — isto é, testava a implementação, não a fonte. Foi assim
+    // que ele passou enquanto o código discordava da spec (ver ERROS.md E8).
     let mut m = mesa(4);
     let primeiro = m.mao_de_quem;
-    for i in 1..=4 {
-        m.nova_mao(&mut StdRng::seed_from_u64(i));
-        assert_eq!(m.mao_de_quem, (primeiro + i as usize) % 4);
+    for i in 1..=4usize {
+        m.nova_mao(&mut StdRng::seed_from_u64(i as u64));
+        assert_eq!(
+            m.mao_de_quem,
+            (primeiro + 4 - (i % 4)) % 4,
+            "mao {i}: o mao anda contra a ordem de jogo"
+        );
     }
+    // Depois de 4 mãos numa mesa de 4, todo mundo foi mão exatamente uma vez.
+    assert_eq!(m.mao_de_quem, primeiro);
 }
 
 #[test]
@@ -574,8 +586,26 @@ fn fuzz_partidas_completas_nunca_travam_nem_produzem_placar_impossivel() {
         let n = if semente % 2 == 0 { 2 } else { 4 };
         let mut m = Match::novo(n, &mut rng);
         let mut passos = 0;
+        let mut placar_anterior = m.placar;
         loop {
             passos += 1;
+            // R9: só 0, 1, 3, 6, 9 ou 12 podem ser creditados por mão. Checar o DELTA é o
+            // invariante certo; checar só o total deixaria passar um crédito de 2.
+            let delta = [
+                m.placar[0] as i32 - placar_anterior[0] as i32,
+                m.placar[1] as i32 - placar_anterior[1] as i32,
+            ];
+            for d in delta {
+                assert!(
+                    [0, 1, 3, 6, 9, 12].contains(&d),
+                    "semente {semente}: creditou {d} pontos numa mao"
+                );
+            }
+            assert!(
+                delta[0] == 0 || delta[1] == 0,
+                "semente {semente}: as duas duplas pontuaram na mesma mao"
+            );
+            placar_anterior = m.placar;
             assert!(passos < 10_000, "semente {semente} travou");
             match m.fase {
                 Fase::PartidaEncerrada { vencedor } => {
@@ -596,10 +626,13 @@ fn fuzz_partidas_completas_nunca_travam_nem_produzem_placar_impossivel() {
                 }
                 Fase::AguardandoResposta { respondendo, proposto, .. } => {
                     let a = (0..n).find(|a| time_do_assento(*a) == respondendo).unwrap();
+                    // R18: aumentar é ilegal se aceitar já venceria. O fuzz respeita as regras;
+                    // quem testa a recusa é `r18_...` abaixo.
+                    let pode_aumentar = proposto < 12
+                        && m.placar[respondendo as usize] + proposto < PONTOS_PARA_VENCER;
                     let acao = match rng.gen_range(0..3) {
                         0 => Acao::Correr,
-                        1 => Acao::Aceitar,
-                        _ if proposto < 12 => Acao::Aumentar,
+                        _ if pode_aumentar && rng.gen_bool(0.5) => Acao::Aumentar,
                         _ => Acao::Aceitar,
                     };
                     m.aplicar(a, acao).unwrap();
@@ -625,4 +658,227 @@ fn fuzz_partidas_completas_nunca_travam_nem_produzem_placar_impossivel() {
         // Só 0, 1, 3, 6, 9 ou 12 podem ter sido somados; o placar nunca passa de 23.
         assert!(m.placar[0] <= 23 && m.placar[1] <= 23, "semente {semente}: {:?}", m.placar);
     }
+}
+
+// ─────────────────────── lacunas apontadas pela revisão adversarial ───────────────────────
+// Os testes abaixo cobrem regras que estavam implementadas (ou ausentes) e sem teste. A
+// revisão que as encontrou está creditada em ERROS.md E8.
+
+#[test]
+fn r2_a_ordem_base_inclui_o_par_quatro_menor_que_cinco() {
+    // Os dois testes antigos de R2 usavam vira 3 (tira o 4) e vira 4 (tira o 5), então a
+    // relação 4 < 5 da ordem base nunca era afirmada por ninguém.
+    let vira = Card::new(Rank::Valete, Suit::Ouros); // manilha = K, nem 4 nem 5 saem
+    assert!(
+        Card::new(Rank::Quatro, Suit::Paus).forca(vira) < Card::new(Rank::Cinco, Suit::Ouros).forca(vira),
+        "4 tem de valer menos que 5"
+    );
+    // E a cadeia inteira, numa mao em que nenhum dos dez ranks e manilha... impossivel:
+    // a manilha sempre tira um rank. Entao confiro a cadeia com duas viras complementares.
+    for vira_rank in [Rank::Valete, Rank::Tres] {
+        let v = Card::new(vira_rank, Suit::Ouros);
+        let manilha = vira_rank.proximo_ciclico();
+        let base: Vec<Rank> = Rank::TODOS.into_iter().filter(|r| *r != manilha).collect();
+        for par in base.windows(2) {
+            assert!(
+                Card::new(par[0], Suit::Paus).forca(v) < Card::new(par[1], Suit::Ouros).forca(v),
+                "vira {vira_rank:?}: {:?} < {:?}", par[0], par[1]
+            );
+        }
+    }
+}
+
+#[test]
+fn r7_rodada_inteira_encoberta_empata_e_nao_trava() {
+    let mut m = mesa(2);
+    let vira = Card::new(Rank::Quatro, Suit::Ouros);
+    montar(&mut m, vira, &[
+        [Card::new(Rank::Tres, Suit::Paus), Card::new(Rank::Dois, Suit::Paus), Card::new(Rank::Sete, Suit::Paus)],
+        [Card::new(Rank::Tres, Suit::Ouros), Card::new(Rank::Dois, Suit::Ouros), Card::new(Rank::Sete, Suit::Ouros)],
+    ]);
+    // Rodada 1 empatada (3 contra 3, nenhum e manilha).
+    m.aplicar(0, Acao::Jogar { carta: Card::new(Rank::Tres, Suit::Paus), encoberta: false }).unwrap();
+    m.aplicar(1, Acao::Jogar { carta: Card::new(Rank::Tres, Suit::Ouros), encoberta: false }).unwrap();
+    assert_eq!(m.mao.rodadas, vec![None]);
+    let puxador = m.mao.puxador;
+    // Rodada 2: os DOIS jogam encoberto. Ninguem vence; quem puxou a rodada puxa a proxima.
+    let a = m.mao.vez;
+    m.aplicar(a, Acao::Jogar { carta: m.mao.cartas[a][0], encoberta: true }).unwrap();
+    let b = m.mao.vez;
+    m.aplicar(b, Acao::Jogar { carta: m.mao.cartas[b][0], encoberta: true }).unwrap();
+    assert_eq!(m.mao.rodadas, vec![None, None], "tudo encoberto nao da vencedor");
+    assert_eq!(m.mao.puxador, puxador, "quem puxou a rodada toda encoberta puxa a proxima");
+    assert_eq!(m.fase, Fase::Jogando, "a mao continua para a terceira rodada");
+}
+
+#[test]
+fn r8_tres_rodadas_empatadas_pelo_match_nao_creditam_ponto_a_ninguem() {
+    // A tabela de R8 e testada em isolamento; este teste exercita o caminho pelo `Match`,
+    // que e onde `pontuar` poderia creditar pontos numa mao empatada.
+    let mut m = mesa(2);
+    let vira = Card::new(Rank::Quatro, Suit::Ouros); // manilha = 5, nenhuma em jogo
+    montar(&mut m, vira, &[
+        [Card::new(Rank::Tres, Suit::Paus), Card::new(Rank::Dois, Suit::Paus), Card::new(Rank::Sete, Suit::Paus)],
+        [Card::new(Rank::Tres, Suit::Ouros), Card::new(Rank::Dois, Suit::Ouros), Card::new(Rank::Sete, Suit::Ouros)],
+    ]);
+    for (c0, c1) in [
+        (Card::new(Rank::Tres, Suit::Paus), Card::new(Rank::Tres, Suit::Ouros)),
+        (Card::new(Rank::Dois, Suit::Paus), Card::new(Rank::Dois, Suit::Ouros)),
+        (Card::new(Rank::Sete, Suit::Paus), Card::new(Rank::Sete, Suit::Ouros)),
+    ] {
+        let a = m.mao.vez;
+        let (primeira, segunda) = if a == 0 { (c0, c1) } else { (c1, c0) };
+        m.aplicar(a, Acao::Jogar { carta: primeira, encoberta: false }).unwrap();
+        let b = m.mao.vez;
+        m.aplicar(b, Acao::Jogar { carta: segunda, encoberta: false }).unwrap();
+    }
+    assert_eq!(m.mao.rodadas, vec![None, None, None]);
+    assert_eq!(m.placar, [0, 0], "mao empatada nao credita ponto a ninguem");
+    assert_eq!(m.fase, Fase::MaoEncerrada);
+}
+
+#[test]
+fn r11_mao_de_ferro_empatada_leva_a_outra_mao_de_ferro() {
+    let mut m = mesa(2);
+    m.placar = [11, 11];
+    m.nova_mao(&mut StdRng::seed_from_u64(5));
+    assert_eq!(m.mao.tipo, TipoMao::MaoDeFerro);
+    m.mao.puxador = 0;
+    m.mao.vez = 0;
+    let vira = Card::new(Rank::Quatro, Suit::Ouros);
+    montar(&mut m, vira, &[
+        [Card::new(Rank::Tres, Suit::Paus), Card::new(Rank::Dois, Suit::Paus), Card::new(Rank::Sete, Suit::Paus)],
+        [Card::new(Rank::Tres, Suit::Ouros), Card::new(Rank::Dois, Suit::Ouros), Card::new(Rank::Sete, Suit::Ouros)],
+    ]);
+    for (c0, c1) in [
+        (Card::new(Rank::Tres, Suit::Paus), Card::new(Rank::Tres, Suit::Ouros)),
+        (Card::new(Rank::Dois, Suit::Paus), Card::new(Rank::Dois, Suit::Ouros)),
+        (Card::new(Rank::Sete, Suit::Paus), Card::new(Rank::Sete, Suit::Ouros)),
+    ] {
+        let a = m.mao.vez;
+        let (p, q) = if a == 0 { (c0, c1) } else { (c1, c0) };
+        m.aplicar(a, Acao::Jogar { carta: p, encoberta: false }).unwrap();
+        let b = m.mao.vez;
+        m.aplicar(b, Acao::Jogar { carta: q, encoberta: false }).unwrap();
+    }
+    assert_eq!(m.placar, [11, 11], "ferro empatada nao decide nada");
+    assert_eq!(m.fase, Fase::MaoEncerrada, "a partida NAO acabou");
+    m.nova_mao(&mut StdRng::seed_from_u64(6));
+    assert_eq!(m.mao.tipo, TipoMao::MaoDeFerro, "joga-se outra mao de ferro");
+}
+
+#[test]
+fn r9_r10_qualquer_um_da_dupla_responde_em_2x2() {
+    // F2: "Qualquer um dos jogadores pode responder o pedido e vale a primeira resposta dada."
+    // Todos os testes de truco usavam mesa(2), onde "qualquer um do time" e um so.
+    let mut m = mesa(4);
+    m.aplicar(0, Acao::Pedir).unwrap();
+    assert_eq!(m.fase, Fase::AguardandoResposta { pedinte: 0, respondendo: 1, proposto: 3 });
+    assert!(m.pode_agir(1) && m.pode_agir(3), "os dois do time que responde podem");
+    assert!(!m.pode_agir(0) && !m.pode_agir(2), "o time que pediu nao responde");
+    // O assento 3 (parceiro do 1, e nao o proximo a jogar) responde, e vale.
+    m.aplicar(3, Acao::Aceitar).unwrap();
+    assert_eq!(m.mao.valor, 3);
+
+    // Mesmo na mao de onze.
+    let mut m = mesa(4);
+    m.placar = [11, 4];
+    m.nova_mao(&mut StdRng::seed_from_u64(2));
+    assert_eq!(m.fase, Fase::DecisaoMaoDeOnze { time: 0 });
+    assert!(m.pode_agir(0) && m.pode_agir(2));
+    assert!(!m.pode_agir(1) && !m.pode_agir(3));
+    m.aplicar(2, Acao::MaoDeOnzeCorrer).unwrap();
+    assert_eq!(m.placar, [11, 5]);
+}
+
+#[test]
+fn r10_r17_quem_decide_ve_a_mao_do_parceiro_e_so_quem_decide() {
+    // R10 em 2x2: a dupla de 11 ve as cartas um do outro.
+    let mut m = mesa(4);
+    m.placar = [4, 11];
+    m.nova_mao(&mut StdRng::seed_from_u64(8));
+    assert_eq!(m.mao.tipo, TipoMao::MaoDeOnze { time: 1 });
+    assert!(m.pode_ver_cartas_do_parceiro(1) && m.pode_ver_cartas_do_parceiro(3));
+    assert!(!m.pode_ver_cartas_do_parceiro(0) && !m.pode_ver_cartas_do_parceiro(2));
+
+    // R17: ao responder um pedido, a dupla que responde ve as cartas um do outro.
+    let mut m = mesa(4);
+    for a in 0..4 {
+        assert!(!m.pode_ver_cartas_do_parceiro(a), "fora de decisao ninguem ve nada");
+    }
+    m.aplicar(0, Acao::Pedir).unwrap();
+    assert!(m.pode_ver_cartas_do_parceiro(1) && m.pode_ver_cartas_do_parceiro(3),
+            "o time que responde ao truco pode ver (R17)");
+    assert!(!m.pode_ver_cartas_do_parceiro(0) && !m.pode_ver_cartas_do_parceiro(2),
+            "quem pediu nao ve — ainda");
+    // F1: ao pedirem 6, o time que pediu truco passa a poder ver antes de responder.
+    m.aplicar(1, Acao::Aumentar).unwrap();
+    assert!(m.pode_ver_cartas_do_parceiro(0) && m.pode_ver_cartas_do_parceiro(2));
+    assert!(!m.pode_ver_cartas_do_parceiro(1) && !m.pode_ver_cartas_do_parceiro(3));
+    m.aplicar(0, Acao::Aceitar).unwrap();
+    for a in 0..4 {
+        assert!(!m.pode_ver_cartas_do_parceiro(a), "resolvido o pedido, ninguem mais ve");
+    }
+}
+
+#[test]
+fn r18_ilegal_aumentar_se_aceitar_ja_vencesse_a_partida() {
+    // Exemplo literal de F1: A tem 7, B tem 5. A pede truco, B pede 6. A nao pode pedir 9,
+    // porque aceitar 6 ja lhe daria 13.
+    let mut m = mesa(2);
+    m.placar = [7, 5];
+    m.aplicar(0, Acao::Pedir).unwrap();            // A propoe 3
+    m.aplicar(1, Acao::Aumentar).unwrap();         // B aceita 3 e propoe 6
+    assert_eq!(m.mao.valor, 3);
+    assert_eq!(m.fase, Fase::AguardandoResposta { pedinte: 1, respondendo: 0, proposto: 6 });
+    assert_eq!(m.aplicar(0, Acao::Aumentar), Err(Erro::AumentoDesnecessario));
+    // Aceitar e correr continuam legais.
+    m.aplicar(0, Acao::Aceitar).unwrap();
+    assert_eq!(m.mao.valor, 6);
+
+    // Com placar baixo, aumentar segue permitido.
+    let mut m = mesa(2);
+    m.placar = [0, 0];
+    m.aplicar(0, Acao::Pedir).unwrap();
+    m.aplicar(1, Acao::Aumentar).unwrap();
+    assert!(m.aplicar(0, Acao::Aumentar).is_ok(), "0x0: aumentar para 9 e legal");
+}
+
+#[test]
+fn seguranca_assento_inexistente_nao_age_nem_pela_paridade() {
+    // Sem validacao de assento, `pode_agir` nas fases de resposta so olhava `assento % 2`,
+    // entao o assento 99 (impar) podia correr pelo time 1 numa mesa de 2.
+    let mut m = mesa(2);
+    m.aplicar(0, Acao::Pedir).unwrap();
+    assert_eq!(m.aplicar(99, Acao::Correr), Err(Erro::AssentoInexistente));
+    assert_eq!(m.aplicar(3, Acao::Aceitar), Err(Erro::AssentoInexistente));
+    assert_eq!(m.placar, [0, 0], "nada aconteceu");
+    assert_eq!(m.fase, Fase::AguardandoResposta { pedinte: 0, respondendo: 1, proposto: 3 });
+
+    let mut m = mesa(2);
+    m.placar = [11, 0];
+    m.nova_mao(&mut StdRng::seed_from_u64(1));
+    assert_eq!(m.aplicar(2, Acao::MaoDeOnzeCorrer), Err(Erro::AssentoInexistente));
+    assert_eq!(m.aplicar(4, Acao::MaoDeOnzeJogar), Err(Erro::AssentoInexistente));
+}
+
+#[test]
+fn r16_d11_o_1x1_e_a_mesma_regra_com_time_de_um() {
+    // D11 declara o 1x1 como extrapolacao: nada no motor assume 2 jogadores por time.
+    let mut m = mesa(2);
+    assert_eq!(m.jogadores, 2);
+    assert_eq!(time_do_assento(0), 0);
+    assert_eq!(time_do_assento(1), 1);
+    // Mao de onze no 1x1: o proprio jogador decide, e "ver o parceiro" e ver a propria mao.
+    m.placar = [11, 2];
+    m.nova_mao(&mut StdRng::seed_from_u64(4));
+    assert_eq!(m.fase, Fase::DecisaoMaoDeOnze { time: 0 });
+    assert!(m.pode_agir(0) && !m.pode_agir(1));
+    assert_eq!(m.mao.valor, 3);
+    // Mao de ferro no 1x1.
+    let mut m = mesa(2);
+    m.placar = [11, 11];
+    m.nova_mao(&mut StdRng::seed_from_u64(4));
+    assert_eq!(m.mao.tipo, TipoMao::MaoDeFerro);
+    assert_eq!(m.fase, Fase::Jogando, "ninguem decide na mao de ferro, nem no 1x1");
 }

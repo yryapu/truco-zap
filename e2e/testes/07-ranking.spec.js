@@ -1,6 +1,6 @@
 // C6: ranking e emblemas de reputação.
 import { test, expect } from '@playwright/test';
-import { entrarComoConvidado, abrirMesa, jogarAteOFim } from './ajuda.js';
+import { entrarComoConvidado, abrirMesa, jogarAteOFim, quemVenceu } from './ajuda.js';
 
 test('ganhar uma partida sobe o jogador no ranking e troca o emblema de trilha', async ({ browser }) => {
   const ctxs = [await browser.newContext(), await browser.newContext()];
@@ -12,8 +12,10 @@ test('ganhar uma partida sobe o jogador no ranking e troca o emblema de trilha',
     await expect(p.getByTestId('emblemas').locator('[data-chave="estreante"]')).toBeVisible();
   }
 
-  await abrirMesa(pages, '1x1', 0);
-  const vencedor = await jogarAteOFim(pages);
+  await abrirMesa(pages, '1x1', 41);
+  await jogarAteOFim(pages);
+  // `jogarAteOFim` devolve quem VIU o fim primeiro, e o fim aparece para os dois.
+  const vencedor = await quemVenceu(pages);
   await vencedor.getByTestId('btn-voltar').click();
 
   // Trilha por vitórias: 0 => estreante, 1 => pé-de-meia.

@@ -5,7 +5,7 @@ import { entrarComoConvidado, entrarNaFila, gravarWebSocket, conferirCartas } fr
 test('todo campo de carta no WebSocket é um único code point do bloco Playing Cards', async ({ page }) => {
   const quadros = gravarWebSocket(page); // antes de conectar
   await entrarComoConvidado(page);
-  await entrarNaFila(page, '1x1', 0);
+  await entrarNaFila(page, '1x1', 29);
   await expect(page.getByTestId('mesa')).toBeVisible({ timeout: 45_000 });
 
   // Joga algumas cartas para gerar quadros de ida e volta.
@@ -42,7 +42,7 @@ test('todo campo de carta no WebSocket é um único code point do bloco Playing 
 
 test('a tela desenha a carta como caractere Unicode e o servidor recusa carta inventada', async ({ page }) => {
   await entrarComoConvidado(page);
-  await entrarNaFila(page, '1x1', 0);
+  await entrarNaFila(page, '1x1', 31);
   await expect(page.getByTestId('mesa')).toBeVisible({ timeout: 45_000 });
 
   const cartas = page.locator('[data-testid^="carta-"]');

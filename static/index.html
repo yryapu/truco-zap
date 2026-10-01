@@ -48,15 +48,17 @@
       <button data-testid="modo-1x1" id="modo-1x1" class="modo escolhido">1x1</button>
       <button data-testid="modo-2x2" id="modo-2x2" class="modo">2x2 (duplas)</button>
     </div>
-    <label>aposta
-      <select data-testid="campo-aposta" id="campo-aposta">
-        <option value="0">0 — amistoso</option>
-        <option value="50">50</option>
-        <option value="100" selected>100</option>
-        <option value="250">250</option>
-        <option value="500">500</option>
-      </select>
+    <label>aposta — quanto você quiser, até o seu saldo
+      <input data-testid="campo-aposta" id="campo-aposta" type="number"
+             min="0" step="1" value="100" inputmode="numeric">
     </label>
+    <div class="linha atalhos">
+      <button data-testid="aposta-0" class="fantasma" data-valor="0">amistoso</button>
+      <button data-testid="aposta-50" class="fantasma" data-valor="50">50</button>
+      <button data-testid="aposta-100" class="fantasma" data-valor="100">100</button>
+      <button data-testid="aposta-500" class="fantasma" data-valor="500">500</button>
+      <button data-testid="aposta-tudo" class="fantasma" data-valor="tudo">tudo</button>
+    </div>
     <button data-testid="btn-fila" id="btn-fila" class="grande">Entrar na fila</button>
     <p data-testid="status-fila" id="status-fila" class="discreto"></p>
   </section>

@@ -38,7 +38,7 @@ test('truco sobe o valor da mão de 1 para 3 e o adversário vê a resposta', as
   const ctxs = [await browser.newContext(), await browser.newContext()];
   const pages = [await ctxs[0].newPage(), await ctxs[1].newPage()];
   for (const p of pages) await entrarComoConvidado(p);
-  await abrirMesa(pages, '1x1', 0);
+  await abrirMesa(pages, '1x1', 13);
 
   for (const p of pages) await expect(p.getByTestId('valor-mao')).toHaveText('1');
 
@@ -71,7 +71,7 @@ test('correr do truco entrega 1 ponto, não 3', async ({ browser }) => {
   const ctxs = [await browser.newContext(), await browser.newContext()];
   const pages = [await ctxs[0].newPage(), await ctxs[1].newPage()];
   for (const p of pages) await entrarComoConvidado(p);
-  await abrirMesa(pages, '1x1', 0);
+  await abrirMesa(pages, '1x1', 17);
 
   const pedinte = await quemPodePedir(pages);
   const respondente = pedinte === pages[0] ? pages[1] : pages[0];

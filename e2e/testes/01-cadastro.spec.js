@@ -13,7 +13,7 @@ test('um clique vira jogador com 1000 moedas e emblema de estreante', async ({ p
 test('do primeiro clique até a mesa aberta em menos de 60 segundos, jogando sozinho', async ({ page }) => {
   const t0 = Date.now();
   await entrarComoConvidado(page);
-  await entrarNaFila(page, '1x1', 100);
+  await entrarNaFila(page, '1x1', 7);
   // Casa vazia: a mesa é completada com robôs depois de 8s (decisão D15).
   await expect(page.getByTestId('mesa')).toBeVisible({ timeout: 45_000 });
   await expect(page.getByTestId('minha-mao').locator('[data-testid^="carta-"]')).toHaveCount(3);

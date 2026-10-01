@@ -122,3 +122,5 @@ td:first-child { color: #e8dcc099; width: 2.2rem; }
   .carta { font-size: 3rem; }
   .carta.pequena { font-size: 1.8rem; }
 }
+
+.atalhos button { padding: .3rem .6rem; font-size: .85rem; }

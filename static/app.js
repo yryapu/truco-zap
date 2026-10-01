@@ -423,9 +423,27 @@ for (const m of ['1x1', '2x2']) {
   };
 }
 
+for (const b of document.querySelectorAll('.atalhos button')) {
+  b.onclick = () => {
+    const v = b.dataset.valor;
+    $('campo-aposta').value = v === 'tudo' ? (meuPerfil?.saldo ?? 0) : v;
+  };
+}
+
 $('btn-fila').onclick = () => {
+  const bruta = Number($('campo-aposta').value);
+  // Validação local só para dar erro rápido. A de verdade é no servidor, que lê o saldo do
+  // banco — o cliente nunca é a autoridade sobre quanto alguém tem.
+  if (!Number.isInteger(bruta) || bruta < 0) {
+    $('status-fila').textContent = 'a aposta precisa ser um número inteiro de 0 para cima';
+    return;
+  }
+  if (meuPerfil && bruta > meuPerfil.saldo) {
+    $('status-fila').textContent = `você tem ${meuPerfil.saldo} moedas`;
+    return;
+  }
   $('status-fila').textContent = 'entrando na fila…';
-  manda({ t: 'entrar_fila', modo, aposta: Number($('campo-aposta').value) });
+  manda({ t: 'entrar_fila', modo, aposta: bruta });
 };
 
 $('btn-pedir').onclick = () => manda({ t: 'pedir' });

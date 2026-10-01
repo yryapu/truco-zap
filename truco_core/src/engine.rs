@@ -114,6 +114,7 @@ pub enum Evento {
 #[serde(rename_all = "snake_case")]
 pub enum Erro {
     NaoEhSuaVez,
+    AssentoInexistente,
     CartaNaoEstaNaSuaMao,
     EncobertaNaPrimeiraRodada,
     AcaoForaDeFase,
@@ -121,6 +122,8 @@ pub enum Erro {
     JaPediuEsperaResposta,
     SeuTimeFezOUltimoPedido,
     ValorMaximoAtingido,
+    /// R18: aceitar o valor proposto já venceria a partida — aumentar é proibido.
+    AumentoDesnecessario,
     PartidaEncerrada,
 }
 
@@ -179,12 +182,18 @@ impl Match {
         m
     }
 
-    /// Distribui a próxima mão. R13: o "mão" rotaciona um assento.
+    /// Distribui a próxima mão.
+    ///
+    /// R13/**D16**: o "mão" rotaciona um assento **contra** a ordem de jogo. A ordem de jogo é
+    /// anti-horária (o próximo é o da direita, `+1`), e F2 diz que a mão seguinte começa pelo
+    /// jogador "da esquerda ao que começou a mão anterior" — logo `-1`. F1 diz o contrário
+    /// (`+1`). Divergência real entre as fontes, resolvida em D16 a favor de F2 pelo mesmo
+    /// critério de D07: a fonte mais específica sobre a variante paulista ganha.
     pub fn nova_mao<R: Rng>(&mut self, rng: &mut R) -> Vec<Evento> {
         if let Fase::PartidaEncerrada { .. } = self.fase {
             return vec![];
         }
-        self.mao_de_quem = (self.mao_de_quem + 1) % self.jogadores;
+        self.mao_de_quem = (self.mao_de_quem + self.jogadores - 1) % self.jogadores;
         self.distribuir(rng)
     }
 
@@ -255,6 +264,12 @@ impl Match {
     }
 
     pub fn aplicar(&mut self, assento: usize, acao: Acao) -> Result<Vec<Evento>, Erro> {
+        // O motor valida o assento em vez de confiar no chamador. Sem isto, `pode_agir` nas
+        // fases de resposta só olhava a **paridade** (`assento % 2`), então um assento
+        // inexistente com a paridade certa podia correr pelo time adversário.
+        if assento >= self.jogadores {
+            return Err(Erro::AssentoInexistente);
+        }
         if let Fase::PartidaEncerrada { .. } = self.fase {
             return Err(Erro::PartidaEncerrada);
         }
@@ -399,6 +414,15 @@ impl Match {
         if proposto >= 12 {
             return Err(Erro::ValorMaximoAtingido); // R9: no 12 só aceita ou corre
         }
+        // R18: ilegal aumentar quando só aceitar já bastaria para vencer a partida.
+        // > F1: "It is illegal to raise a truco if just accepting would give you enough points
+        // > to win the game. For example, suppose team A has a score of 7 and team B has 5.
+        // > Team A says 'truco' and team B says 'vale 6'. It is now illegal (as well as stupid)
+        // > for team A to say 'vale 9', because 6 points are already sufficient to win."
+        let meu_time = time_do_assento(assento);
+        if self.placar[meu_time as usize].saturating_add(proposto) >= PONTOS_PARA_VENCER {
+            return Err(Erro::AumentoDesnecessario);
+        }
         // Checa ANTES de mexer no estado. Hoje isto é inalcançável (proposto < 12 implica que
         // ainda há degrau), mas um `?` depois de mutar deixaria a mão num valor subido sem
         // pedido pendente — o tipo de bug que só aparece quando a escada muda.
@@ -489,9 +513,25 @@ impl Match {
         ev
     }
 
-    /// R10: na mão de onze a dupla de 11 vê as cartas do parceiro. Em nenhum outro momento.
+    /// Quando a dupla pode trocar as cartas de olhada. Duas situações, as duas das fontes:
+    ///
+    /// - **R10:** a dupla de 11 decide a mão de onze vendo as cartas um do outro.
+    /// - **R17:** a dupla que precisa **responder** a um pedido vê as cartas um do outro antes
+    ///   de correr, aceitar ou aumentar.
+    ///   > F1 (Paulista): "Immediately after truco is called, the opponents can look at each
+    ///   > other's hands by passing all cards face down to each other and discuss whether to
+    ///   > accept the call. Similarly, if the opposing team decides to call 6 later on (or
+    ///   > immediately), the Truco-calling team can also look at each other's hands before
+    ///   > deciding if they accept the raise to 6 or decline."
+    ///
+    /// Em nenhum outro momento. Note que as duas condições coincidem com `pode_agir` — quem
+    /// decide é quem pode ver, o que é o que faz sentido: a olhada existe para a decisão.
     pub fn pode_ver_cartas_do_parceiro(&self, assento: usize) -> bool {
-        matches!(self.fase, Fase::DecisaoMaoDeOnze { time } if time_do_assento(assento) == time)
+        match self.fase {
+            Fase::DecisaoMaoDeOnze { time } => time_do_assento(assento) == time,
+            Fase::AguardandoResposta { respondendo, .. } => time_do_assento(assento) == respondendo,
+            _ => false,
+        }
     }
 }
 

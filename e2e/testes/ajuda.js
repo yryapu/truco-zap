@@ -19,9 +19,13 @@ export async function cadastrar(page, apelido, senha = 'segredo123') {
   await page.getByTestId('btn-cadastrar').click();
 }
 
+/// Entra na fila. **Cada teste usa uma aposta única** de propósito: a fila é indexada por
+/// (modo, aposta), então apostas distintas dão a cada teste uma fila isolada. Sem isso, dois
+/// testes com a mesma aposta se emparelham entre si e um deles fica esperando para sempre —
+/// foi o que me deu falhas intermitentes na primeira execução (ERROS.md E7).
 export async function entrarNaFila(page, modo, aposta) {
   await page.getByTestId(`modo-${modo}`).click();
-  await page.getByTestId('campo-aposta').selectOption(String(aposta));
+  await page.getByTestId('campo-aposta').fill(String(aposta));
   await page.getByTestId('btn-fila').click();
 }
 
@@ -86,6 +90,16 @@ export async function jogarAteOFim(pages, limiteMs = 180_000) {
     pages.map((p) => p.getByTestId('fim').textContent().catch(() => '—'))
   );
   throw new Error(`nenhuma partida terminou em ${limiteMs}ms. Estado de fim: ${fins.join(' | ')}`);
+}
+
+/// Qual das páginas venceu. `jogarAteOFim` devolve a primeira que *viu* o fim, e o fim
+/// aparece para os dois — vencedor e perdedor. Confundir as duas coisas foi E6.
+export async function quemVenceu(pages) {
+  for (const p of pages) {
+    const t = await p.getByTestId('fim').textContent().catch(() => '');
+    if ((t || '').includes('Vitória')) return p;
+  }
+  throw new Error('ninguém mostra Vitória — a partida não terminou como eu esperava');
 }
 
 /// Devolve a página cujo jogador tem a vez e pode pedir truco, esperando até aparecer.

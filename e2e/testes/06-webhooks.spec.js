@@ -2,10 +2,28 @@
 import { test, expect } from '@playwright/test';
 import http from 'node:http';
 import crypto from 'node:crypto';
+import os from 'node:os';
 import { entrarComoConvidado, entrarNaFila, jogarAteOFim } from './ajuda.js';
 
 const PORTA = Number(process.env.RECEPTOR_PORTA || 9099);
-const HOST = process.env.RECEPTOR_HOST || 'localhost';
+
+/// O endereço pelo qual o **servidor** alcança este processo de teste.
+///
+/// Usar o nome do serviço (`e2e`) não funciona: um container criado por `docker compose run`
+/// é anexado à rede, mas o nome dele é `<projeto>-e2e-run-<hash>`, e o alias de serviço não é
+/// garantido para containers avulsos. Foi exatamente isso que fez a primeira execução falhar
+/// com "error sending request for url (http://e2e:9099/hook)" — ver ERROS.md E5.
+/// IP próprio na rede do Compose não depende de DNS nenhum.
+function meuEndereco() {
+  if (process.env.RECEPTOR_HOST) return process.env.RECEPTOR_HOST;
+  for (const ifaces of Object.values(os.networkInterfaces())) {
+    for (const i of ifaces || []) {
+      if (i.family === 'IPv4' && !i.internal) return i.address;
+    }
+  }
+  return 'localhost';
+}
+const HOST = meuEndereco();
 
 let servidor;
 let recebidos = [];
@@ -37,7 +55,7 @@ test('registra webhook e recebe partida.comecou e partida.resultado com HMAC vá
   const segredo = linha.split(': ').pop().trim();
   expect(segredo.length).toBeGreaterThan(20);
 
-  await entrarNaFila(page, '1x1', 0);
+  await entrarNaFila(page, '1x1', 37);
   await expect(page.getByTestId('mesa')).toBeVisible({ timeout: 45_000 });
   await jogarAteOFim([page]);
 
@@ -61,9 +79,13 @@ test('registra webhook e recebe partida.comecou e partida.resultado com HMAC vá
   expect(resultado.jogadores.length).toBeGreaterThan(0);
 });
 
-test('a assinatura não fecha com o segredo errado', async () => {
-  expect(recebidos.length).toBeGreaterThan(0);
-  const r = recebidos[0];
-  const errada = 'sha256=' + crypto.createHmac('sha256', 'nao-e-o-segredo').update(r.corpo).digest('hex');
-  expect(r.headers['x-truco-signature']).not.toBe(errada);
+// Independente do teste acima de propósito: um teste que só falha porque o anterior falhou
+// não informa nada. Aqui a propriedade testada é a do HMAC em si.
+test('a assinatura depende do segredo e do corpo', () => {
+  const corpo = '{"evento":"partida.resultado","partida_id":"x"}';
+  const h = (seg, c) => crypto.createHmac('sha256', seg).update(c).digest('hex');
+  expect(h('segredo-a', corpo)).not.toBe(h('segredo-b', corpo));
+  expect(h('segredo-a', corpo)).not.toBe(h('segredo-a', corpo + ' '));
+  expect(h('segredo-a', corpo)).toBe(h('segredo-a', corpo));
+  expect(h('segredo-a', corpo)).toHaveLength(64);
 });

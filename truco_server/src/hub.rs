@@ -235,7 +235,11 @@ pub fn estado_view(mesa: &Mesa, assento: usize) -> Value {
 
     let opcoes: Vec<&str> = match m.fase {
         Fase::AguardandoResposta { proposto, .. } if m.pode_agir(assento) => {
-            if proposto >= 12 {
+            // R18: se aceitar o proposto já vence a partida, aumentar é proibido — então o
+            // botão não aparece. Mesma filosofia de D10: a interface não oferece o ilegal.
+            let ja_venceria =
+                m.placar[time_do_assento(assento) as usize].saturating_add(proposto) >= 12;
+            if proposto >= 12 || ja_venceria {
                 vec!["correr", "aceitar"]
             } else {
                 vec!["correr", "aceitar", "aumentar"]
@@ -394,6 +398,7 @@ pub fn codigo_do_erro(e: truco_core::Erro) -> &'static str {
     use truco_core::Erro::*;
     match e {
         NaoEhSuaVez => "nao_eh_sua_vez",
+        AssentoInexistente => "assento_inexistente",
         CartaNaoEstaNaSuaMao => "carta_nao_esta_na_sua_mao",
         EncobertaNaPrimeiraRodada => "encoberta_na_primeira_rodada",
         AcaoForaDeFase => "acao_fora_de_fase",
@@ -401,6 +406,7 @@ pub fn codigo_do_erro(e: truco_core::Erro) -> &'static str {
         JaPediuEsperaResposta => "ja_pediu_espera_resposta",
         SeuTimeFezOUltimoPedido => "seu_time_fez_o_ultimo_pedido",
         ValorMaximoAtingido => "valor_maximo_atingido",
+        AumentoDesnecessario => "aumento_desnecessario",
         PartidaEncerrada => "partida_encerrada",
     }
 }

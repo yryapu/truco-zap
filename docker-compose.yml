@@ -30,7 +30,8 @@ services:
     environment:
       BASE_URL: http://app:8080 # dentro da rede do Compose, sempre 8080
       RECEPTOR_PORTA: "9099"
-      RECEPTOR_HOST: e2e
+      # RECEPTOR_HOST fica em branco: o teste descobre o proprio IP na rede do Compose.
+      # Nome de servico nao resolve para container criado por `compose run` (ver ERROS.md E5).
       CI: "1"
     depends_on:
       app: { condition: service_healthy }
