@@ -126,7 +126,29 @@ testes roda na rede do Compose. Em produção elas ficam fora: é o que mantém 
 ligada (recusa loopback, privado, link-local, CGNAT e IPv4-mapeado, revalidando na entrega e
 fixando o endereço validado na conexão para fechar DNS rebinding).
 
+## Provas
+
+| o que | comando | resultado |
+|---|---|---|
+| regras do truco paulista | `cargo test -p truco_core` | **37 passed, 0 failed** — inclui a tabela exaustiva de 15 empates de pagat.com e fuzz de 2000 partidas completas |
+| servidor (emblemas, webhook, SSRF) | `cargo test -p truco_server` | **9 passed, 0 failed** |
+| front e WebSocket | `docker compose --profile teste run --rm e2e` | **18 passed (3,9 min), zero intermitentes** |
+| API HTTP do terminal | `./scripts/fumaca.sh http://localhost:18080` | **13 ok, 0 falhou** |
+| CI | GitHub Actions `testes` | `cargo test` + `clippy -D warnings` + `cargo fmt --check` ✅ |
+
+Detalhe de qual teste prova qual requisito: [`resultado.json`](resultado.json), campo
+`criterios` — cada um traz o comando e a saída.
+
 ## Riscos conhecidos
 
-Estão listados em [`resultado.json`](resultado.json), campo `riscos_conhecidos`, sem
-maquiagem.
+14 deles estão listados em [`resultado.json`](resultado.json), campo `riscos_conhecidos`, sem
+maquiagem. Os três que eu destacaria:
+
+- **A camada `truco_server` não teve revisão adversarial independente.** O motor teve, e foi
+  nela que apareceram os bugs reais. O `hub.rs`/`main.rs` está coberto por E2E, não por revisão.
+- **O `docker-compose.yml` desliga a guarda de SSRF** (`TRUCO_WEBHOOK_ALLOW_HTTP` e
+  `_ALLOW_PRIVATE`) para que o receptor de webhook dos testes funcione na rede do Compose. É
+  exatamente o tipo de default conveniente que vaza para produção.
+- **Nenhum limite de taxa.** Criar convidados em massa é barato e cada um nasce com 1000 moedas;
+  como o saldo não vale nada fora do jogo o impacto é poluir o ranking, não fraude — mas o
+  ranking é trivialmente poluível.
